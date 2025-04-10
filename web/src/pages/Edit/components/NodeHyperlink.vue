@@ -33,8 +33,8 @@
       ></el-input>
     </div>
     <span slot="footer" class="dialog-footer">
-      <el-button @click="cancel">{{ $t('dialog.cancel') }}</el-button>
-      <el-button type="primary" @click="confirm">{{
+      <el-button size="mini" @click="cancel">{{ $t('dialog.cancel') }}</el-button>
+      <el-button size="mini" type="primary" @click="confirm">{{
         $t('dialog.confirm')
       }}</el-button>
     </span>

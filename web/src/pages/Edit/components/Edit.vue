@@ -95,20 +95,7 @@ import MindMapLayoutPro from 'simple-mind-map/src/plugins/MindMapLayoutPro.js'
 import NodeBase64ImageStorage from 'simple-mind-map/src/plugins/NodeBase64ImageStorage.js'
 import Themes from 'simple-mind-map-plugin-themes'
 // 协同编辑插件
-// import Cooperate from 'simple-mind-map/src/plugins/Cooperate.js'
-// 以下插件为付费插件，详情请查看开发文档。依次为：手绘风格插件、标记插件、编号插件、Freemind软件格式导入导出插件、Excel软件格式导入导出插件、待办插件、节点连线流动效果插件、动量效果插件、向右鱼骨图插件、节点链接插件、扩展节点形状插件、扩展主题列表插件
-import HandDrawnLikeStyle from 'simple-mind-map-plugin-handdrawnlikestyle'
-import Notation from 'simple-mind-map-plugin-notation'
-import Numbers from 'simple-mind-map-plugin-numbers'
-import Freemind from 'simple-mind-map-plugin-freemind'
-import Excel from 'simple-mind-map-plugin-excel'
-import Checkbox from 'simple-mind-map-plugin-checkbox'
-import LineFlow from 'simple-mind-map-plugin-lineflow'
-import Momentum from 'simple-mind-map-plugin-momentum'
-import RightFishbone from 'simple-mind-map-plugin-right-fishbone'
-import NodeLink from 'simple-mind-map-plugin-node-link'
-// import MoreShapes from 'simple-mind-map-plugin-more-shapes'
-// import MoreThemes from 'simple-mind-map-plugin-more-themes'
+import Notation from 'simple-mind-map/src/plugins/notation/dist/notation.esm.min.js'
 // npm link simple-mind-map simple-mind-map-plugin-excel simple-mind-map-plugin-freemind simple-mind-map-plugin-numbers simple-mind-map-plugin-notation simple-mind-map-plugin-handdrawnlikestyle simple-mind-map-plugin-checkbox simple-mind-map-plugin-lineflow simple-mind-map-plugin-momentum simple-mind-map-plugin-right-fishbone simple-mind-map-plugin-node-link
 // simple-mind-map-plugin-themes
 // simple-mind-map-plugin-more-themes simple-mind-map-plugin-more-shapes
@@ -177,6 +164,7 @@ MindMap.usePlugin(MiniMap)
   .usePlugin(OuterFrame)
   .usePlugin(MindMapLayoutPro)
   .usePlugin(NodeBase64ImageStorage)
+  .usePlugin(Notation)
 // .usePlugin(Cooperate) // 协同插件
 
 // 注册主题

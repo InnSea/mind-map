@@ -12,6 +12,14 @@ module.exports = {
   filenameHashing: false,
   transpileDependencies: ['yjs', 'lib0', 'quill'],
   chainWebpack: config => {
+    if (isDev) {
+      const { codeInspectorPlugin } = require('code-inspector-plugin');
+      config.plugin('code-inspector-plugin').use(
+        codeInspectorPlugin({
+          bundler: 'webpack',
+        })
+      );
+    }
     // 移除 preload 插件
     config.plugins.delete('preload')
     // 移除 prefetch 插件

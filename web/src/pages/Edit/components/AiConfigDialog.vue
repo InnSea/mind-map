@@ -13,11 +13,6 @@
         ref="ruleFormRef"
         label-width="100px"
       >
-        <p class="title">{{ $t('ai.VolcanoArkLargeModelConfiguration') }}</p>
-        <p class="desc">
-          {{ $t('ai.configTip') }}<a href="https://mp.weixin.qq.com/s/JNb7PH4sCjWzIZ9G8wStGQ" target="_blank">{{ $t('ai.course') }}</a
-          >。
-        </p>
         <el-form-item label="API Key" prop="key">
           <el-input v-model="ruleForm.key"></el-input>
         </el-form-item>
@@ -40,8 +35,8 @@
       </el-form>
     </div>
     <div slot="footer" class="dialog-footer">
-      <el-button @click="cancel">{{ $t('ai.cancel') }}</el-button>
-      <el-button type="primary" @click="confirm">{{
+      <el-button size="mini" @click="cancel">{{ $t('ai.cancel') }}</el-button>
+      <el-button size="mini" type="primary" @click="confirm">{{
         $t('ai.confirm')
       }}</el-button>
     </div>

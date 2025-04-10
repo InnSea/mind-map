@@ -16,8 +16,8 @@
     <div class="noteEditor" ref="noteEditor" @keyup.stop @keydown.stop></div>
     <!-- <div class="tip">换行请使用：Enter+Shift</div> -->
     <span slot="footer" class="dialog-footer">
-      <el-button @click="cancel">{{ $t('dialog.cancel') }}</el-button>
-      <el-button type="primary" @click="confirm">{{
+      <el-button size="mini" @click="cancel">{{ $t('dialog.cancel') }}</el-button>
+      <el-button size="mini" type="primary" @click="confirm">{{
         $t('dialog.confirm')
       }}</el-button>
     </span>
