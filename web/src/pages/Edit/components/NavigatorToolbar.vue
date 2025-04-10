@@ -92,18 +92,6 @@
     <div class="item">
       <Demonstrate :isDark="isDark" :mindMap="mindMap"></Demonstrate>
     </div>
-    <div class="item">
-      <el-dropdown @command="handleCommand">
-        <div class="btn iconfont iconbangzhu"></div>
-        <el-dropdown-menu slot="dropdown">
-          <el-dropdown-item command="client">下载客户端</el-dropdown-item>
-          <el-dropdown-item command="github">Github</el-dropdown-item>
-          <el-dropdown-item command="site">官方网站</el-dropdown-item>
-          <el-dropdown-item command="issue">意见反馈</el-dropdown-item>
-          <el-dropdown-item disabled>当前：v{{ version }}</el-dropdown-item>
-        </el-dropdown-menu>
-      </el-dropdown>
-    </div>
   </div>
 </template>
 
