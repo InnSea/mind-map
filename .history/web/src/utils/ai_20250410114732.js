@@ -73,7 +73,7 @@ class Ai {
 
   async postMsg(data) {
     this.controller = new AbortController()
-    const res = await fetch(`http://test.classtorch.com/ai/chat`, {
+    const res = await fetch(`http://localhost:${this.options.port}/ai/chat`, {
       signal: this.controller.signal,
       method: 'POST',
       headers: {
@@ -85,8 +85,7 @@ class Ai {
           ...this.baseData.data,
           ...data
         }
-      }),
-      timeout: 60000
+      })
     })
     if (res.status && res.status !== 200) {
       throw new Error('请求失败')

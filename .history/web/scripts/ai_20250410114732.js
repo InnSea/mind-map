@@ -59,8 +59,7 @@ const createServe = () => {
         method,
         headers,
         data,
-        responseType: 'stream',
-        timeout: 120000
+        responseType: 'stream'
       })
       response.data.pipe(res)
     } catch (error) {

@@ -177,7 +177,7 @@ export default {
       try {
         await fetch(`http://test.classtorch.com/ai/test`, {
           method: 'GET',
-          timeout: 60000
+          timeout: 120000
         })
         this.$message.success(this.$t('ai.connectSuccessful'))
         this.clientTipDialogVisible = false
@@ -206,8 +206,7 @@ export default {
       let isConnect = false
       try {
         await fetch(`http://test.classtorch.com/ai/test`, {
-          method: 'GET',
-          timeout: 60000
+          method: 'GET'
         })
         isConnect = true
       } catch (error) {

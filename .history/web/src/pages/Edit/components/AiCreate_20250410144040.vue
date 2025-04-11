@@ -27,7 +27,7 @@
         </p>
       </div>
       <div slot="footer" class="dialog-footer">
-        <el-button size="mini" type="primary" @click="clientTipDialogVisible = false">{{
+        <el-button type="primary" @click="clientTipDialogVisible = false">{{
           $t('ai.close')
         }}</el-button>
       </div>
@@ -51,18 +51,18 @@
         <div class="tip warning">
           {{ $t('ai.importantTip') }}
         </div>
-        <!-- <div class="tip">
+        <div class="tip">
           {{ $t('ai.wantModifyAiConfigTip')
           }}<el-button size="small" @click="showAiConfigDialog">{{
             $t('ai.modifyAIConfiguration')
           }}</el-button>
-        </div> -->
+        </div>
       </div>
       <div slot="footer" class="dialog-footer">
-        <el-button size="mini" @click="closeAiCreateDialog">{{
+        <el-button @click="closeAiCreateDialog">{{
           $t('ai.cancel')
         }}</el-button>
-        <el-button size="mini" type="primary" @click="doAiCreate">{{
+        <el-button type="primary" @click="doAiCreate">{{
           $t('ai.confirm')
         }}</el-button>
       </div>
@@ -90,10 +90,10 @@
         <el-input type="textarea" :rows="5" v-model="aiPartInput"> </el-input>
       </div>
       <div slot="footer" class="dialog-footer">
-        <el-button size="mini" @click="closeAiCreatePartDialog">{{
+        <el-button @click="closeAiCreatePartDialog">{{
           $t('ai.cancel')
         }}</el-button>
-        <el-button size="mini" type="primary" @click="confirmAiCreatePart">{{
+        <el-button type="primary" @click="confirmAiCreatePart">{{
           $t('ai.confirm')
         }}</el-button>
       </div>
@@ -175,9 +175,8 @@ export default {
     // 客户端连接检测
     async testConnect() {
       try {
-        await fetch(`http://test.classtorch.com/ai/test`, {
-          method: 'GET',
-          timeout: 60000
+        await fetch(`http://test.classtorch.com:${this.aiConfig.port}/ai/test`, {
+          method: 'GET'
         })
         this.$message.success(this.$t('ai.connectSuccessful'))
         this.clientTipDialogVisible = false
@@ -205,9 +204,8 @@ export default {
       // 检查连接
       let isConnect = false
       try {
-        await fetch(`http://test.classtorch.com/ai/test`, {
-          method: 'GET',
-          timeout: 60000
+        await fetch(`http://test.classtorch.com:${this.aiConfig.port}/ai/test`, {
+          method: 'GET'
         })
         isConnect = true
       } catch (error) {

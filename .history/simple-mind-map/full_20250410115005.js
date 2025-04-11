@@ -25,14 +25,14 @@ import markdown from './src/parse/markdown.js'
 import icons from './src/svg/icons.js'
 import * as constants from './src/constants/constant.js'
 import * as defaultTheme from './src/theme/default.js'
-import Notation from './src/plugins/notation/dist/notation.esm.min.js'
+import Notation from './src/plugins/notation/dist/notation.esm.min'
 
 MindMap.xmind = xmind
 MindMap.markdown = markdown
 MindMap.iconList = icons.nodeIconList
 MindMap.constants = constants
 MindMap.defaultTheme = defaultTheme
-MindMap.version = '0.14.0-fix.1'
+MindMap.version = '0.14.0'
 
 MindMap.usePlugin(MiniMap)
   .usePlugin(Watermark)
@@ -55,7 +55,5 @@ MindMap.usePlugin(MiniMap)
   .usePlugin(OuterFrame)
   .usePlugin(MindMapLayoutPro)
   .usePlugin(NodeBase64ImageStorage)
-  .usePlugin(Notation)
 
-  
 export default MindMap

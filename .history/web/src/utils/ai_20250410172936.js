@@ -86,7 +86,7 @@ class Ai {
           ...data
         }
       }),
-      timeout: 60000
+      timeout: 120000
     })
     if (res.status && res.status !== 200) {
       throw new Error('请求失败')
