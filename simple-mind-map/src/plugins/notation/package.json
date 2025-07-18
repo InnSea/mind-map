@@ -1,0 +1,15 @@
+{
+  "name": "simple-mind-map-plugin-notation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "esbuild ./index.js --bundle --minify --external:buffer --format=esm --outfile=./dist/notation.esm.min.js && esbuild ./index.js --bundle --minify --external:buffer --format=cjs --outfile=./dist/notation.cjs.min.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "esbuild": "^0.17.15",
+    "rough-notation": "^0.5.1"
+  }
+}
