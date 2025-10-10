@@ -5,15 +5,22 @@
         <label
           for="imgUploadInput"
           class="imgUploadInputArea"
+          :class="{ uploading: isUploading }"
           @dragenter.stop.prevent
           @dragover.stop.prevent
           @drop.stop.prevent="onDrop"
-          >点击此处选择图片、或拖动图片到此</label
-        >
+          >
+          <span v-if="!isUploading">点击此处选择图片、或拖动图片到此</span>
+          <span v-else>
+            <i class="el-icon-loading"></i>
+            正在上传图片...
+          </span>
+        </label>
         <input
           type="file"
           accept="image/*"
           id="imgUploadInput"
+          :disabled="isUploading"
           @change="onImgUploadInputChange"
         />
       </div>
@@ -29,6 +36,8 @@
 </template>
 
 <script>
+import { uploadImage } from '@/api/upload'
+
 export default {
   model: {
     prop: 'value',
@@ -42,7 +51,8 @@ export default {
   },
   data() {
     return {
-      file: null
+      file: null,
+      isUploading: false
     }
   },
   methods: {
@@ -60,13 +70,29 @@ export default {
     },
 
     // 选择图片
-    selectImg(file) {
+    async selectImg(file) {
       this.file = file
-      let fr = new FileReader()
-      fr.readAsDataURL(file)
-      fr.onload = e => {
-        this.$emit('change', e.target.result)
+      
+      try {
+        // 显示加载状态
+        this.isUploading = true
+        
+        // 上传到服务器
+        const imageUrl = await this.uploadToServer(file)
+        
+        // 返回服务器图片 URL
+        this.$emit('change', imageUrl)
+      } catch (error) {
+        console.error('图片上传失败:', error)
+        this.$message && this.$message.error('图片上传失败，请重试')
+      } finally {
+        this.isUploading = false
       }
+    },
+
+    // 上传图片到服务器
+    async uploadToServer(file) {
+      return await uploadImage(file)
     },
 
     // 获取图片大小
@@ -100,4 +126,21 @@ export default {
 
 <style lang="less" scoped>
 @import './style.less';
+
+.imgUploadContainer {
+  .imgUploadPanel {
+    .upBtn {
+      .imgUploadInputArea {
+        &.uploading {
+          opacity: 0.6;
+          cursor: not-allowed;
+          
+          i {
+            margin-right: 5px;
+          }
+        }
+      }
+    }
+  }
+}
 </style>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>队列机制测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #mindMapContainer {
+            width: 800px;
+            height: 600px;
+            border: 1px solid #ccc;
+            margin: 20px 0;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>思维导图队列机制测试</h1>
+    
+    <div class="controls">
+        <button onclick="testConcurrentUpdateData()">测试并发 updateData</button>
+        <button onclick="testConcurrentSetFullData()">测试并发 setFullData</button>
+        <button onclick="testMixedCalls()">测试混合调用</button>
+        <button onclick="clearLog()">清空日志</button>
+    </div>
+    
+    <div id="mindMapContainer"></div>
+    
+    <div class="log" id="logContainer"></div>
+
+    <script type="module">
+        import MindMap from './simple-mind-map/index.js'
+        
+        // 初始化思维导图
+        const mindMap = new MindMap({
+            el: document.getElementById('mindMapContainer'),
+            data: {
+                "data": {
+                    "text": "根节点"
+                },
+                "children": [
+                    {
+                        "data": {
+                            "text": "分支1"
+                        }
+                    },
+                    {
+                        "data": {
+                            "text": "分支2"
+                        }
+                    }
+                ]
+            }
+        })
+        
+        // 日志函数
+        function log(message) {
+            const logContainer = document.getElementById('logContainer')
+            const timestamp = new Date().toLocaleTimeString()
+            logContainer.innerHTML += `[${timestamp}] ${message}\n`
+            logContainer.scrollTop = logContainer.scrollHeight
+        }
+        
+        // 监听更新事件
+        mindMap.on('update_data', (data) => {
+            log(`✅ updateData 完成: 节点数量 ${countNodes(data)}`)
+        })
+        
+        mindMap.on('set_data', (data) => {
+            log(`✅ setData 完成: 节点数量 ${countNodes(data)}`)
+        })
+        
+        // 计算节点数量
+        function countNodes(data) {
+            if (!data) return 0
+            let count = 1
+            if (data.children && data.children.length > 0) {
+                data.children.forEach(child => {
+                    count += countNodes(child)
+                })
+            }
+            return count
+        }
+        
+        // 测试并发 updateData
+        window.testConcurrentUpdateData = function() {
+            log('🚀 开始测试并发 updateData...')
+            
+            for (let i = 0; i < 5; i++) {
+                const data = {
+                    "data": {
+                        "text": `根节点-${i}`
+                    },
+                    "children": [
+                        {
+                            "data": {
+                                "text": `分支1-${i}`
+                            }
+                        },
+                        {
+                            "data": {
+                                "text": `分支2-${i}`
+                            }
+                        }
+                    ]
+                }
+                
+                log(`📤 发送 updateData 请求 ${i + 1}`)
+                mindMap.updateData(data)
+            }
+        }
+        
+        // 测试并发 setFullData
+        window.testConcurrentSetFullData = function() {
+            log('🚀 开始测试并发 setFullData...')
+            
+            for (let i = 0; i < 5; i++) {
+                const fullData = {
+                    root: {
+                        "data": {
+                            "text": `完整数据根节点-${i}`
+                        },
+                        "children": [
+                            {
+                                "data": {
+                                    "text": `完整数据分支1-${i}`
+                                }
+                            },
+                            {
+                                "data": {
+                                    "text": `完整数据分支2-${i}`
+                                }
+                            }
+                        ]
+                    },
+                    theme: {
+                        template: 'default'
+                    }
+                }
+                
+                log(`📤 发送 setFullData 请求 ${i + 1}`)
+                mindMap.setFullData(fullData)
+            }
+        }
+        
+        // 测试混合调用
+        window.testMixedCalls = function() {
+            log('🚀 开始测试混合调用...')
+            
+            // 交替调用 updateData 和 setFullData
+            for (let i = 0; i < 3; i++) {
+                const updateData = {
+                    "data": {
+                        "text": `混合测试-updateData-${i}`
+                    },
+                    "children": [
+                        {
+                            "data": {
+                                "text": `混合分支-${i}`
+                            }
+                        }
+                    ]
+                }
+                
+                const fullData = {
+                    root: {
+                        "data": {
+                            "text": `混合测试-setFullData-${i}`
+                        },
+                        "children": [
+                            {
+                                "data": {
+                                    "text": `混合完整分支-${i}`
+                                }
+                            }
+                        ]
+                    }
+                }
+                
+                log(`📤 发送混合 updateData 请求 ${i + 1}`)
+                mindMap.updateData(updateData)
+                
+                log(`📤 发送混合 setFullData 请求 ${i + 1}`)
+                mindMap.setFullData(fullData)
+            }
+        }
+        
+        // 清空日志
+        window.clearLog = function() {
+            document.getElementById('logContainer').innerHTML = ''
+        }
+        
+        log('✨ 思维导图队列机制测试页面已加载')
+    </script>
+</body>
+</html>
