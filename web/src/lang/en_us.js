@@ -528,13 +528,17 @@ export default {
     aiCreateMsgPrefix: 'Help me write one【',
     aiCreateMsgPostfix:
       '】. It needs to be returned in Markdown format and can only use two syntax: Markdown title and unordered list. It can support multiple layers of nesting. Just return the content.',
-    aiCreatePartMsgPrefix: 'I have a theme for【',
-    aiCreatePartMsgCenter:
-      '】Can you help me continue writing one of the contents of the mind map【',
-    aiCreatePartMsgPostfix: '】The subordinate content of the node',
-    aiCreatePartMsgHelp:
-      '. Needs to be returned in Markdown format and can only use two syntax: Markdown title and unordered list. It can support multi-level nesting. Just return the content.',
-    aiCreatePart: 'AI Continuation'
+    aiCreatePart: 'AI Continuation',
+    aiCreatePartDefaultInput: 'Help me continue this node',
+    aiCreatePartPlaceholder: 'Editable: Enter your requirements, e.g., "focus on technical details", "generate 3-5 child nodes"',
+    currentNode: 'Current node',
+    pathInfo: 'Mind map path: ',
+    currentNodeInfo: 'Node to continue: ',
+    siblingsInfo: 'Sibling nodes: ',
+    existingChildrenInfo: 'Existing child nodes: ',
+    userInstructionInfo: 'Additional requirements: ',
+    aiCreatePartPromptPrefix: 'You are a mind map continuation assistant. Please generate child node content for the specified node based on the following context information.',
+    aiCreatePartPromptSuffix: 'Please generate child nodes for this node with the following requirements:\n1. Format as markdown list, each child node can contain deeper sub-nodes\n2. Do not repeat existing child node content\n3. Content should be consistent with the style and level of sibling nodes\n4. Clear structure, logical and reasonable'
   },
   note: {
     title: 'Note'

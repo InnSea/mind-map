@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>思维导图 iframe 集成测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        .control-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 300px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .iframe-container {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>思维导图 iframe 集成测试</h1>
+        
+        <div class="controls">
+            <h3>协同编辑配置</h3>
+            <div class="control-group">
+                <label>WebSocket地址:</label>
+                <input type="text" id="wsUrl" value="ws://localhost:4444" placeholder="输入WebSocket服务器地址">
+            </div>
+            <div class="control-group">
+                <label>房间名称:</label>
+                <input type="text" id="roomName" value="mind-room" placeholder="输入房间名称">
+            </div>
+            <div class="control-group">
+                <label>用户名:</label>
+                <input type="text" id="userName" value="测试用户" placeholder="输入用户名">
+            </div>
+            <div class="control-group">
+                <button onclick="updateConfig()">更新配置</button>
+                <button onclick="loadMindMap()">加载思维导图</button>
+                <button onclick="testCooperate()">测试协同编辑</button>
+            </div>
+        </div>
+
+        <div class="iframe-container">
+            <iframe id="mindMapFrame" src=""></iframe>
+        </div>
+
+        <div class="status" id="status">
+            状态: 等待加载...
+        </div>
+    </div>
+
+    <script>
+        let mindMapFrame = document.getElementById('mindMapFrame');
+        let statusDiv = document.getElementById('status');
+
+        function updateStatus(message) {
+            statusDiv.textContent = `状态: ${message}`;
+            console.log(message);
+        }
+
+        function updateConfig() {
+            const wsUrl = document.getElementById('wsUrl').value;
+            const roomName = document.getElementById('roomName').value;
+            
+            if (!wsUrl || !roomName) {
+                alert('请填写完整的配置信息');
+                return;
+            }
+
+            // 通过postMessage向iframe发送配置
+            const config = {
+                signalingList: [wsUrl],
+                roomName: roomName
+            };
+
+            mindMapFrame.contentWindow.postMessage({
+                type: 'setCooperateConfig',
+                config: config
+            }, '*');
+
+            updateStatus(`配置已更新: WebSocket=${wsUrl}, 房间=${roomName}`);
+        }
+
+        function loadMindMap() {
+            const userName = document.getElementById('userName').value;
+            const url = `./index.html?userName=${encodeURIComponent(userName)}`;
+            
+            mindMapFrame.src = url;
+            updateStatus('正在加载思维导图...');
+        }
+
+        function testCooperate() {
+            // 发送测试协同编辑的消息
+            mindMapFrame.contentWindow.postMessage({
+                type: 'testCooperate'
+            }, '*');
+            
+            updateStatus('发送协同编辑测试请求...');
+        }
+
+        // 监听来自iframe的消息
+        window.addEventListener('message', function(event) {
+            if (event.origin !== window.location.origin) {
+                return;
+            }
+
+            const data = event.data;
+            if (data.type === 'mindMapLoaded') {
+                updateStatus('思维导图加载完成');
+                // 自动更新配置
+                updateConfig();
+            } else if (data.type === 'cooperateConfigSet') {
+                updateStatus('协同编辑配置设置成功');
+            } else if (data.type === 'cooperateError') {
+                updateStatus(`协同编辑错误: ${data.message}`);
+            }
+        });
+
+        // 页面加载完成后自动加载思维导图
+        window.onload = function() {
+            loadMindMap();
+        };
+    </script>
+</body>
+</html>

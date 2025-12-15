@@ -526,13 +526,17 @@ export default {
     aiCreateMsgPrefix: 'Giúp tôi viết một【',
     aiCreateMsgPostfix:
       '】. Nó cần được trả về ở định dạng Markdown và chỉ có thể sử dụng hai cú pháp: tiêu đề Markdown và danh sách không có thứ tự. Nó có thể hỗ trợ nhiều lớp lồng nhau. Chỉ cần trả về nội dung.',
-    aiCreatePartMsgPrefix: 'Tôi có một chủ đề là【',
-    aiCreatePartMsgCenter:
-      '】Bạn có thể giúp tôi tiếp tục viết một trong những nội dung của sơ đồ tư duy【',
-    aiCreatePartMsgPostfix: '】Nội dung phụ thuộc của nút',
-    aiCreatePartMsgHelp:
-      '. Cần được trả về ở định dạng Markdown và chỉ có thể sử dụng hai cú pháp: tiêu đề Markdown và danh sách không có thứ tự. Nó có thể hỗ trợ lồng ghép nhiều cấp độ. Chỉ cần trả về nội dung.',
-    aiCreatePart: 'AI Tiếp tục'
+    aiCreatePart: 'AI Tiếp tục',
+    aiCreatePartDefaultInput: 'Giúp tôi tiếp tục nút này',
+    aiCreatePartPlaceholder: 'Có thể chỉnh sửa: Nhập yêu cầu của bạn, ví dụ: "tập trung vào chi tiết kỹ thuật", "tạo 3-5 nút con"',
+    currentNode: 'Nút hiện tại',
+    pathInfo: 'Đường dẫn sơ đồ tư duy: ',
+    currentNodeInfo: 'Nút cần tiếp tục: ',
+    siblingsInfo: 'Các nút anh em: ',
+    existingChildrenInfo: 'Các nút con hiện có: ',
+    userInstructionInfo: 'Yêu cầu bổ sung: ',
+    aiCreatePartPromptPrefix: 'Bạn là trợ lý tiếp tục sơ đồ tư duy. Vui lòng tạo nội dung nút con cho nút được chỉ định dựa trên thông tin ngữ cảnh sau.',
+    aiCreatePartPromptSuffix: 'Vui lòng tạo các nút con cho nút này với các yêu cầu sau:\n1. Định dạng danh sách markdown, mỗi nút con có thể chứa các nút con sâu hơn\n2. Không lặp lại nội dung nút con hiện có\n3. Nội dung phải nhất quán với phong cách và cấp độ của các nút anh em\n4. Cấu trúc rõ ràng, logic và hợp lý'
   },
   note: {
     title: 'Ghi chú'

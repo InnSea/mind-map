@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>优雅的协作编辑配置测试</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .controls {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .config-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .iframe-container {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .iframe-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            font-weight: 600;
+        }
+        iframe {
+            width: 100%;
+            height: 700px;
+            border: none;
+            display: block;
+        }
+        .feature-highlight {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff6b6b;
+        }
+        .feature-highlight h3 {
+            margin: 0 0 10px 0;
+            color: #d63031;
+        }
+        .feature-highlight p {
+            margin: 0;
+            color: #2d3436;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 优雅的协作编辑配置</h1>
+            <p>通过 externalEnvironment.js 实现更优雅的配置管理</p>
+        </div>
+        
+        <div class="feature-highlight">
+            <h3>✨ 新特性</h3>
+            <p>现在可以通过 externalEnvironment mixin 来优雅地管理协作编辑配置，支持动态配置更新和事件通知。</p>
+        </div>
+        
+        <div class="controls">
+            <h3 style="margin-top: 0; color: #333; font-size: 1.5em;">协作编辑配置</h3>
+            
+            <div class="config-section">
+                <div class="form-group">
+                    <label for="roomName">🏠 房间名称</label>
+                    <input type="text" id="roomName" value="elegant-room" placeholder="输入协作房间名称">
+                </div>
+                <div class="form-group">
+                    <label for="wsServer">🌐 WebSocket服务器</label>
+                    <input type="text" id="wsServer" value="ws://localhost:4444" placeholder="输入WebSocket服务器地址">
+                </div>
+                <div class="form-group">
+                    <label for="userName">👤 用户名</label>
+                    <input type="text" id="userName" value="优雅用户" placeholder="输入用户名">
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="loadMindMap()">📱 加载思维导图</button>
+                <button class="btn btn-secondary" onclick="setCooperateConfig()">⚙️ 设置协作配置</button>
+                <button class="btn btn-success" onclick="getCooperateConfig()">📋 获取当前配置</button>
+                <button class="btn btn-primary" onclick="testDynamicUpdate()">🔄 测试动态更新</button>
+            </div>
+            
+            <div class="status" id="status">
+状态: 等待操作...
+
+💡 使用说明:
+1. 点击"加载思维导图"加载iframe
+2. 点击"设置协作配置"配置协作参数
+3. 配置会通过externalEnvironment优雅地传递给组件
+4. 支持动态更新配置，无需重新加载页面
+            </div>
+        </div>
+        
+        <div class="iframe-container">
+            <div class="iframe-header">
+                📊 思维导图 - 协作编辑模式
+            </div>
+            <iframe id="mindMapFrame" src="about:blank"></iframe>
+        </div>
+    </div>
+
+    <script>
+        let mindMapFrame = null;
+        let statusLog = [];
+        
+        function updateStatus(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            statusLog.push(logEntry);
+            
+            // 保持最近20条日志
+            if (statusLog.length > 20) {
+                statusLog = statusLog.slice(-20);
+            }
+            
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = statusLog.join('\n');
+            statusElement.scrollTop = statusElement.scrollHeight;
+            
+            console.log(logEntry);
+        }
+        
+        function loadMindMap() {
+            mindMapFrame = document.getElementById('mindMapFrame');
+            mindMapFrame.src = './index.html?userName=测试用户';
+            updateStatus('🔄 正在加载思维导图...');
+            
+            mindMapFrame.onload = function() {
+                updateStatus('✅ 思维导图加载完成！现在可以设置协作配置了');
+                
+                // 监听iframe中的事件
+                try {
+                    const iframeWindow = mindMapFrame.contentWindow;
+                    if (iframeWindow.$bus) {
+                        iframeWindow.$bus.$on('cooperate_config_changed', (config) => {
+                            updateStatus('📢 协作配置已更新: ' + JSON.stringify(config));
+                        });
+                    }
+                } catch (error) {
+                    updateStatus('⚠️ 无法监听iframe事件: ' + error.message);
+                }
+            };
+        }
+        
+        function setCooperateConfig() {
+            if (!mindMapFrame || !mindMapFrame.contentWindow) {
+                updateStatus('❌ 请先加载思维导图');
+                return;
+            }
+            
+            const roomName = document.getElementById('roomName').value;
+            const wsServer = document.getElementById('wsServer').value;
+            const userName = document.getElementById('userName').value;
+            
+            const config = {
+                roomName: roomName,
+                signalingList: [wsServer],
+                userName: userName
+            };
+            
+            try {
+                // 方法1: 通过全局window对象设置
+                if (mindMapFrame.contentWindow.setCooperateConfig) {
+                    mindMapFrame.contentWindow.setCooperateConfig(config);
+                    updateStatus('✅ 通过全局方法设置协作配置成功');
+                }
+                
+                // 方法2: 通过externalEnvironment设置（如果组件已加载）
+                setTimeout(() => {
+                    try {
+                        const iframeWindow = mindMapFrame.contentWindow;
+                        if (iframeWindow.$bus) {
+                            iframeWindow.$bus.$emit('set_cooperate_config', config);
+                            updateStatus('📡 通过事件总线发送配置更新');
+                        }
+                    } catch (error) {
+                        updateStatus('⚠️ 事件总线通信失败: ' + error.message);
+                    }
+                }, 500);
+                
+                updateStatus('📝 配置详情: ' + JSON.stringify(config, null, 2));
+                
+            } catch (error) {
+                updateStatus('❌ 设置协作配置时出错: ' + error.message);
+            }
+        }
+        
+        function getCooperateConfig() {
+            if (!mindMapFrame || !mindMapFrame.contentWindow) {
+                updateStatus('❌ 请先加载思维导图');
+                return;
+            }
+            
+            try {
+                // 尝试通过全局方法获取
+                if (mindMapFrame.contentWindow.getCooperateConfig) {
+                    const config = mindMapFrame.contentWindow.getCooperateConfig();
+                    updateStatus('📋 当前协作配置: ' + JSON.stringify(config, null, 2));
+                } else {
+                    updateStatus('❌ 无法找到getCooperateConfig方法');
+                }
+            } catch (error) {
+                updateStatus('❌ 获取协作配置时出错: ' + error.message);
+            }
+        }
+        
+        function testDynamicUpdate() {
+            if (!mindMapFrame || !mindMapFrame.contentWindow) {
+                updateStatus('❌ 请先加载思维导图');
+                return;
+            }
+            
+            const configs = [
+                {
+                    roomName: 'dynamic-room-1',
+                    signalingList: ['ws://localhost:4444'],
+                    userName: '动态用户1'
+                },
+                {
+                    roomName: 'dynamic-room-2', 
+                    signalingList: ['ws://localhost:4445'],
+                    userName: '动态用户2'
+                }
+            ];
+            
+            let index = 0;
+            const interval = setInterval(() => {
+                if (index >= configs.length) {
+                    clearInterval(interval);
+                    updateStatus('🎉 动态更新测试完成！');
+                    return;
+                }
+                
+                const config = configs[index];
+                try {
+                    if (mindMapFrame.contentWindow.setCooperateConfig) {
+                        mindMapFrame.contentWindow.setCooperateConfig(config);
+                        updateStatus(`🔄 动态更新 ${index + 1}: ${JSON.stringify(config)}`);
+                    }
+                } catch (error) {
+                    updateStatus(`❌ 动态更新失败: ${error.message}`);
+                }
+                
+                index++;
+            }, 2000);
+            
+            updateStatus('🚀 开始动态更新测试...');
+        }
+        
+        // 页面加载完成后的初始化
+        window.onload = function() {
+            updateStatus('🎯 页面加载完成，准备就绪！');
+            updateStatus('💡 提示: 请先点击"加载思维导图"按钮');
+        };
+    </script>
+</body>
+</html>

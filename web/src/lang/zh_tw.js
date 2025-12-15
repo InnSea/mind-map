@@ -509,12 +509,17 @@ export default {
     aiCreateMsgPrefix: '幫我寫一個【',
     aiCreateMsgPostfix:
       '】，需要以Markdown格式返回，並且只能使用Markdown的標題和無序列表兩種語法，可以支持多層嵌套。只需返回內容即可。',
-    aiCreatePartMsgPrefix: '我有一個主題爲【',
-    aiCreatePartMsgCenter: '】的思維導圖，幫我續寫其中一個內容爲【',
-    aiCreatePartMsgPostfix: '】的節點的下級內容',
-    aiCreatePartMsgHelp:
-      '。需要以Markdown格式返回，並且只能使用Markdown的標題和無序列表兩種語法，可以支持多層嵌套。只需返回內容即可。',
-    aiCreatePart: 'AI續寫'
+    aiCreatePart: 'AI續寫',
+    aiCreatePartDefaultInput: '幫我續寫這個節點',
+    aiCreatePartPlaceholder: '可修改：輸入你的要求，如"重點關注技術細節"、"生成3-5個子節點"等',
+    currentNode: '當前節點',
+    pathInfo: '思維導圖路徑：',
+    currentNodeInfo: '需要續寫的節點：',
+    siblingsInfo: '同級節點有：',
+    existingChildrenInfo: '該節點已有子節點：',
+    userInstructionInfo: '補充要求：',
+    aiCreatePartPromptPrefix: '你是一個思維導圖續寫助手。請根據以下上下文信息，為指定節點生成子節點內容。',
+    aiCreatePartPromptSuffix: '請生成該節點的子節點，要求：\n1. 格式為markdown列表，每個子節點可包含更深層的子節點\n2. 不要重複已有的子節點內容\n3. 內容要與同級節點的風格和層次保持一致\n4. 結構清晰，邏輯合理'
   },
   note: {
     title: '備註'

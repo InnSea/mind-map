@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1,minimum-scale=1"
+    />
+    <link rel="icon" href="dist/logo.ico" />
+    <title>用例导图</title>
+    <script>
+      window.externalPublicPath = './dist/';
+      // 接管应用
+      window.takeOverApp = true;
+    </script>
+    <link href="dist/css/chunk-vendors.css?9aaac4e3c0b624a51c58" rel="stylesheet" />
+    <link href="dist/css/app.css?9aaac4e3c0b624a51c58" rel="stylesheet" />
+  </head>
+
+  <body>
+    <noscript
+      ><strong
+        >We're sorry but thoughts doesn't work properly without JavaScript enabled. Please enable it to
+        continue.</strong
+      ></noscript
+    >
+    <div id="app"></div>
+    <script>
+      const debounce = (func, delay) => {
+        let timeoutId;
+        return function (...args) {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
+          timeoutId = setTimeout(() => {
+            func(...args);
+          }, delay);
+        };
+      };
+      const setTakeOverAppMethods = (data) => {
+        window.takeOverAppMethods = {};
+        window.takeOverAppMethods.getMindMapData = () => data.mindMapData;
+        window.takeOverAppMethods.saveMindMapData = (data) => data;
+        window.takeOverAppMethods.getLanguage = () => data.lang;
+        window.takeOverAppMethods.saveLanguage = (lang) => lang;
+        window.takeOverAppMethods.getLocalConfig = () => data.localConfig;
+        window.takeOverAppMethods.saveLocalConfig = (config) => config;
+        window.takeOverAppMethods.getMindMapConfig = () => data.mindMapConfig;
+        window.takeOverAppMethods.saveMindMapConfig = (config) => config;
+        
+        // 设置协同编辑WebSocket配置的函数
+        window.takeOverAppMethods.setCooperateConfig = (config) => {
+          window.cooperateConfig = config;
+        };
+        // 获取协同编辑WebSocket配置的函数
+        window.takeOverAppMethods.getCooperateConfig = () => {
+          return window.cooperateConfig || {
+            signalingList: ['ws://localhost:4444'],
+            roomName: 'mind-room'
+          };
+        };
+      };
+
+      window.onload = async () => {
+        if (!window.takeOverApp) return;
+        
+        window.isInitializing = true;
+        window.disableSync = true;
+        
+        try {
+          const data = await window.parent.getMindMapContent();
+          setTakeOverAppMethods(data);
+        } catch (error) {
+          console.log(error);
+        }
+
+        function saveAsync() {
+          if (!window.mindMap) return;
+
+          return new Promise((resolve) => {
+            const runWhenIdle =
+              window.requestIdleCallback ||
+              function (cb) {
+                return setTimeout(() => cb({ timeRemaining: () => 0, didTimeout: true }), 0);
+              };
+
+            runWhenIdle(
+              async () => {
+                const data = {
+                  mindMapData: window.mindMap.getData(true),
+                  lang: window.takeOverAppMethods.getLanguage(),
+                  // localConfig: window.takeOverAppMethods.getLocalConfig(),
+                };
+
+                try {
+                  if (!window.parent.upload || typeof window.parent.upload !== 'function') {
+                    resolve({ type: 'warning', message: '页面连接已断开，无法保存' });
+                    return;
+                  }
+                  const result = await window.parent.upload(data);
+                  resolve(result);
+                } catch (err) {
+                  resolve({ type: 'error', message: err.message || '未知错误' });
+                }
+              },
+              { timeout: 1000 },
+            );
+          });
+        }
+
+        window.activeSave = saveAsync;
+        window.copyLink = window.parent.copyLink;
+        window.isPublic = window.parent.isPublic;
+        window.disableSync = false;
+        window.isInitializing = true;
+
+        let lastSyncTime = 0;
+        let consecutiveChanges = 0;
+
+        window.$bus.$on('data_change', () => {
+          const now = Date.now();
+          const timeSinceLastSync = now - lastSyncTime;
+
+          if (timeSinceLastSync < 1000) {
+            consecutiveChanges++;
+          } else {
+            consecutiveChanges = 1;
+          }
+
+          let debounceTime = 30000;
+          if (consecutiveChanges > 5) {
+            debounceTime = 60000;
+          }
+
+          // 防抖保存
+          clearTimeout(window.saveTimer);
+          window.saveTimer = setTimeout(() => {
+            saveAsync();
+            lastSyncTime = Date.now();
+            consecutiveChanges = 0;
+          }, debounceTime);
+        });
+
+        window.$bus.$on('app_inited', (mindMap) => {
+          window.mindMap = mindMap;
+          window.disableSync = false;
+          setupMindMapEventListeners(mindMap);
+
+          setTimeout(() => {
+            window.isInitializing = false;
+          }, 2000);
+        });
+
+        window.initApp();
+      };
+
+      function setupMindMapEventListeners(mindMap) {
+        let syncCount = 0;
+        let lastSyncTimestamp = 0;
+        let lastDataChangeTimestamp = 0;
+
+        const adaptiveDebouncedSync = (data, source = 'user') => {
+          // 检查同步状态
+          if (window.disableSync) {
+            return;
+          }
+
+          // 检查初始化
+          if (window.isInitializing) {
+            return;
+          }
+
+          // 只处理用户操作
+          if (source !== 'user') {
+            return;
+          }
+
+          const now = Date.now();
+          const timeSinceLastSync = now - lastSyncTimestamp;
+
+          const shouldSyncImmediately = timeSinceLastSync > 5200;
+
+          if (shouldSyncImmediately) {
+            // 取消任何待执行的同步
+            if (window.syncRequest) {
+              try {
+                if (window.cancelIdleCallback) {
+                  window.cancelIdleCallback(window.syncRequest);
+                } else if (window.cancelAnimationFrame) {
+                  window.cancelAnimationFrame(window.syncRequest);
+                }
+              } catch (e) {
+                // 忽略取消错误
+              }
+              window.syncRequest = null;
+            }
+            syncCount = 0;
+            performSync(data);
+          } else {
+            if (window.syncRequest) {
+              try {
+                if (window.cancelIdleCallback) {
+                  window.cancelIdleCallback(window.syncRequest);
+                } else if (window.cancelAnimationFrame) {
+                  window.cancelAnimationFrame(window.syncRequest);
+                }
+              } catch (e) {
+                // 忽略取消错误
+              }
+              window.syncRequest = null;
+            }
+
+            syncCount++;
+            const priority = syncCount > 3 ? 'high' : 'normal';
+
+            const scheduleSync = () => {
+              performSync(data);
+              window.syncRequest = null;
+            };
+
+            if (window.requestIdleCallback) {
+              window.syncRequest = window.requestIdleCallback(scheduleSync, {
+                timeout: priority === 'high' ? 300 : 1000,
+              });
+            } else {
+              window.syncRequest = window.requestAnimationFrame(scheduleSync);
+            }
+          }
+        };
+
+        const performSync = (data) => {
+          const now = Date.now();
+
+          if (now - lastSyncTimestamp < 50) {
+            return;
+          }
+
+          const fullData = {
+            mindMapData: data,
+            lang: window.takeOverAppMethods.getLanguage(),
+            // localConfig: window.takeOverAppMethods.getLocalConfig(),
+          };
+
+          if (window.parent.sendSyncData) {
+            window.parent.sendSyncData('data_change', fullData);
+            lastSyncTimestamp = now;
+          }
+        };
+
+        mindMap.on('data_change', (data) => {
+          const now = Date.now();
+
+          // 检查同步状态
+          if (window.disableSync) {
+            return;
+          }
+
+          // 检查初始化
+          if (window.isInitializing) {
+            return;
+          }
+
+          // 循环同步检查
+          if (
+            window._isApplyingRemoteData ||
+            (window.mindMap && window.mindMap._isApplyingRemoteData) ||
+            (window.parent && window.parent._isApplyingRemoteData) ||
+            (window.parent && window.parent._processingRemoteSync) ||
+            (window.parent && window.parent.iframeFunction && window.parent.iframeFunction._isApplyingRemoteData)
+          ) {
+            return;
+          }
+
+          // 时间间隔检查
+          if (now - lastDataChangeTimestamp < 200) {
+            lastDataChangeTimestamp = now;
+            return;
+          }
+
+          // 检查是否是由远程数据更新触发的
+          if (window._lastRemoteUpdateTime && (now - window._lastRemoteUpdateTime) < 1000) {
+            return;
+          }
+
+          lastDataChangeTimestamp = now;
+          adaptiveDebouncedSync(data);
+        });
+      }
+    </script>
+    <script src="dist/js/chunk-vendors.js?9aaac4e3c0b624a51c58"></script>
+    <script src="dist/js/app.js?9aaac4e3c0b624a51c58"></script>
+  </body>
+</html>
