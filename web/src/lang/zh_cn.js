@@ -62,6 +62,7 @@ export default {
     isShowScrollbar: '是否显示滚动条',
     isUseHandDrawnLikeStyle: '是否开启手绘风格',
     isUseMomentum: '是否开启拖动画布的动量效果',
+    openBlankMode: '是否开启演示模式的填空功能',
     watermark: '水印',
     showWatermark: '是否显示水印',
     watermarkDefaultText: '水印文字',
@@ -145,8 +146,8 @@ export default {
     nodes: '节点'
   },
   dialog: {
-    cancel: '取 消',
-    confirm: '确 定'
+    cancel: '取消',
+    confirm: '确定'
   },
   export: {
     title: '导出',
@@ -167,11 +168,12 @@ export default {
     useMultiPageExport: '是否多页导出',
     defaultFileName: '思维导图',
     addFooterText: '底部添加文字',
-    addFooterTextPlaceholder: '比如：来自simple-mind-map',
+    addFooterTextPlaceholder: '比如：测试用例导图',
     desc: '说明',
     options: '选项',
     isFitBg: '是否显示完整背景图片（使用了背景图片时生效）',
-    format: '格式'
+    format: '格式',
+    confirm: '导出'
   },
   fullscreen: {
     fullscreenShow: '全屏查看',
@@ -202,7 +204,13 @@ export default {
     readonly: '切换为只读模式',
     edit: '切换为编辑模式',
     backToRoot: '回到根节点',
-    changeSourceCodeEdit: '切换为源码编辑模式'
+    changeSourceCodeEdit: '切换为源码编辑模式',
+    shortcutKeys: '快捷键',
+    ai: 'AI对话',
+    downloadClient: '下载客户端',
+    site: '官方网站',
+    current: '当前：',
+    downloadDesc: '可从如下地址下载：'
   },
   nodeHyperlink: {
     title: '超链接',
@@ -315,6 +323,10 @@ export default {
     saveAs: '另存为',
     import: '导入',
     export: '导出',
+    save: '保存',
+    share: '分享',
+    shareSuccess: '链接已复制，快去分享吧～',
+    shareFail: '分享失败',
     shortcutKey: '快捷键',
     associativeLine: '关联线',
     painter: '格式刷',
@@ -350,7 +362,12 @@ export default {
     deleteNodeImgTip: '是否确认删除该节点图片？',
     autoOpenNodeRichTextTip: '检测到导入了富文本内容，已自动开启富文本模式',
     localStorageExceededTip:
-      '你创建的思维导图体积已经超过浏览器允许存储的上限，请立即导出，否则数据将丢失！建议下载客户端进行使用，客户端无大小限制。'
+      '你创建的思维导图体积已经超过浏览器允许存储的上限，请立即导出，否则数据将丢失！建议下载客户端进行使用，客户端无大小限制。',
+    withBg: '带背景',
+    tryTipTitle: '功能试用提示',
+    tryTipDesc: '该功能在网页版中为试用功能，请下载客户端使用：',
+    downBaidu: '去百度网盘下载',
+    downGithub: '去Github下载'
   },
   mouseAction: {
     tip1: '当前：左键拖动画布，右键框选节点',
@@ -458,7 +475,7 @@ export default {
     baiduNetdisk: '百度网盘',
     createMindMapTitle: '一键生成思维导图',
     createTip:
-      '请输入一个主题，AI会根据你的主题生成思维导图，如：杭州周末出游计划。',
+      '请输入一个主题，AI会根据你的主题生成思维导图。',
     importantTip: '重要提示：一键生成会覆盖现有数据，建议先导出当前数据。',
     wantModifyAiConfigTip: '想要修改AI配置？请点击：',
     modifyAIConfiguration: '修改AI配置',
@@ -510,5 +527,9 @@ export default {
     tip3: '链接成功',
     tip4: '删除成功',
     tip5: '链接节点不存在，是否删除该链接？'
+  },
+  save: {
+    success: '保存成功',
+    fail: '保存失败'
   }
 }

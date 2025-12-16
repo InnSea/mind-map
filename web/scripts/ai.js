@@ -64,7 +64,11 @@ const createServe = () => {
       })
       response.data.pipe(res)
     } catch (error) {
-      next(error)
+      res.status(500).json({
+        code: -1,
+        msg: 'AI代理错误',
+        detail: error.response?.data?.toString() || error.message
+      })
     }
   })
 

@@ -72,11 +72,15 @@ export default {
       this.reset()
       if (this.activeNodes.length > 0) {
         let firstNode = this.activeNodes[0]
-        let img = firstNode.getData('image') || ''
+        let img = firstNode.getImageUrl() || ''
         if (img) {
-          if (/^https?:\/\//.test(img)) {
+          // 只有手动输入的网络图片才放到 imgUrl 输入框
+          // 上传的图片显示在上传组件中
+          if (/^https?:\/\//.test(img) && !img.includes('/mindmap/')) {
+            // 外部网络图片，显示在输入框
             this.imgUrl = img
           } else {
+            // 上传到服务器的图片，显示在上传组件
             this.img = img
           }
         }

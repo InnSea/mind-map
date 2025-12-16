@@ -112,6 +112,7 @@ class Cooperate {
 
   // 数据同步时的处理，更新当前思维导图
   onObserve(event) {
+
     const data = event.target.toJSON()
     // 如果数据没有改变直接返回
     if (isSameObject(data, this.currentData)) return
@@ -138,10 +139,26 @@ class Cooperate {
     const { beforeCooperateUpdate } = this.mindMap.opt
     const oldData = this.currentData
     this.currentData = data
+
+    // 预先计算keys避免重复调用
+    const dataKeys = Object.keys(data)
+    const oldDataKeys = Object.keys(oldData)
+
+    // 如果没有任何变化，直接返回
+    if (
+      dataKeys.length === oldDataKeys.length &&
+      dataKeys.every(
+        uid => oldData[uid] && isSameObject(oldData[uid], data[uid])
+      )
+    ) {
+      return
+    }
+
     this.ydoc.transact(() => {
       // 找出新增的或修改的
       const createOrUpdateList = []
-      Object.keys(data).forEach(uid => {
+      for (let i = 0; i < dataKeys.length; i++) {
+        const uid = dataKeys[i]
         // 新增的或已经存在的，如果数据发生了改变
         if (!oldData[uid] || !isSameObject(oldData[uid], data[uid])) {
           createOrUpdateList.push({
@@ -150,7 +167,7 @@ class Cooperate {
             oldData: oldData[uid]
           })
         }
-      })
+      }
       if (beforeCooperateUpdate && createOrUpdateList.length > 0) {
         beforeCooperateUpdate({
           type: 'createOrUpdate',
@@ -158,52 +175,53 @@ class Cooperate {
           data
         })
       }
-      createOrUpdateList.forEach(item => {
-        this.ymap.set(item.uid, item.data)
-      })
+      for (let i = 0; i < createOrUpdateList.length; i++) {
+        this.ymap.set(createOrUpdateList[i].uid, createOrUpdateList[i].data)
+      }
       // 找出删除的
       const deleteList = []
-      Object.keys(oldData).forEach(uid => {
+      for (let i = 0; i < oldDataKeys.length; i++) {
+        const uid = oldDataKeys[i]
         if (!data[uid]) {
           deleteList.push({ uid, data: oldData[uid] })
         }
-      })
+      }
       if (beforeCooperateUpdate && deleteList.length > 0) {
         beforeCooperateUpdate({
           type: 'delete',
           list: deleteList
         })
       }
-      deleteList.forEach(item => {
-        this.ymap.delete(item.uid)
-      })
+      for (let i = 0; i < deleteList.length; i++) {
+        this.ymap.delete(deleteList[i].uid)
+      }
     })
   }
 
   // 节点激活状态改变后触发感知数据同步
   onNodeActive(node, nodeList) {
     if (this.userInfo) {
+      const nodeIdList = new Array(nodeList.length)
+      for (let i = 0; i < nodeList.length; i++) {
+        nodeIdList[i] = nodeList[i].uid
+      }
       this.awareness.setLocalStateField(this.userInfo.name, {
-        // 用户信息
-        userInfo: {
-          ...this.userInfo
-        },
-        // 当前激活的节点id列表
-        nodeIdList: nodeList.map(item => {
-          return item.uid
-        })
+        userInfo: this.userInfo,
+        nodeIdList
       })
     }
   }
 
   // 节点树渲染完毕事件
   onNodeTreeRenderEnd() {
-    Object.keys(this.waitNodeUidMap).forEach(uid => {
+    const uids = Object.keys(this.waitNodeUidMap)
+    for (let i = 0; i < uids.length; i++) {
+      const uid = uids[i]
       const node = this.mindMap.renderer.findNodeByUid(uid)
       if (node) {
         node.addUser(this.waitNodeUidMap[uid])
       }
-    })
+    }
     this.waitNodeUidMap = {}
   }
 
@@ -235,17 +253,19 @@ class Cooperate {
   // 监听感知数据同步事件
   onAwareness() {
     const walk = (list, callback) => {
-      list.forEach(value => {
+      for (let i = 0; i < list.length; i++) {
+        const value = list[i]
         const userName = Object.keys(value)[0]
-        if (!userName) return
+        if (!userName) continue
         const data = value[userName]
         const userInfo = data.userInfo
         const nodeIdList = data.nodeIdList
-        nodeIdList.forEach(uid => {
+        for (let j = 0; j < nodeIdList.length; j++) {
+          const uid = nodeIdList[j]
           const node = this.mindMap.renderer.findNodeByUid(uid)
           callback(uid, node, userInfo)
-        })
-      })
+        }
+      }
     }
     // 清除之前的数据
     walk(this.currentAwarenessData, (uid, node, userInfo) => {

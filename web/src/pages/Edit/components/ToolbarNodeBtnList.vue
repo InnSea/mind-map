@@ -209,7 +209,7 @@ export default {
   props: {
     dir: {
       type: String,
-      default: 'h' // h（水平排列）、v（垂直排列）
+      default: 'h'
     },
     list: {
       type: Array,

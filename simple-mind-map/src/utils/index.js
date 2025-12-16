@@ -1224,7 +1224,9 @@ export const checkSmmFormatData = data => {
       if (typeof parsedData === 'object' && parsedData.simpleMindMap) {
         smmData = parsedData.data
       }
-    } catch (error) {}
+    } catch (error) {
+      // 忽略JSON解析错误
+    }
   } else if (typeof data === 'object' && data.simpleMindMap) {
     // 否则如果是对象，则检查属性标志
     smmData = data.data
@@ -1481,7 +1483,9 @@ export const getNodeTreeBoundingRect = (
         if (y + height > maxY) {
           maxY = y + height
         }
-      } catch (e) {}
+      } catch (e) {
+        // 忽略节点边界计算错误
+      }
     }
     if (!excludeGeneralization && root._generalizationList.length > 0) {
       root._generalizationList.forEach(item => {

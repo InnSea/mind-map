@@ -69,7 +69,6 @@ export default {
   data() {
     return {
       activeName: 'icon',
-      nodeIconList: mergerIconList([...nodeIconList, ...icon]),
       nodeImageList: [...image],
       iconList: [],
       nodeImage: '',
@@ -79,8 +78,12 @@ export default {
   computed: {
     ...mapState({
       activeSidebar: state => state.activeSidebar,
-      isDark: state => state.localConfig.isDark
-    })
+      isDark: state => state.localConfig.isDark,
+      dynamicIconList: state => state.dynamicIconList
+    }),
+    nodeIconList() {
+      return mergerIconList([...nodeIconList, ...this.dynamicIconList, ...icon])
+    }
   },
   watch: {
     activeSidebar(val) {

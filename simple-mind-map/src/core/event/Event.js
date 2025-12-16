@@ -163,7 +163,7 @@ class Event extends EventEmitter {
     if (typeof customCheckIsTouchPad === 'function') {
       isTouchPad = customCheckIsTouchPad(e)
     } else {
-      isTouchPad = Math.abs(e.deltaY) <= 10
+      isTouchPad = Math.abs(e.deltaY) <= 50
     }
     this.emit('mousewheel', e, dirs, this, isTouchPad)
   }

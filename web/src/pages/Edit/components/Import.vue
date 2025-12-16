@@ -25,6 +25,7 @@
           size="small"
           style="margin-left: 10px;"
           @click="mdImportDialogVisible = true"
+          class="vip"
           >{{ $t('import.mdImportDialogTitle') }}</el-button
         >
         <div slot="tip" class="el-upload__tip">
@@ -74,8 +75,8 @@
       >
       </el-input>
       <span slot="footer" class="dialog-footer">
-        <el-button @click="cancelImportMd">{{ $t('dialog.cancel') }}</el-button>
-        <el-button type="primary" @click="confirmImportFromMd">{{
+        <el-button size="mini" @click="cancelImportMd">{{ $t('dialog.cancel') }}</el-button>
+        <el-button size="mini" type="primary" @click="confirmImportFromMd">{{
           $t('dialog.confirm')
         }}</el-button>
       </span>
@@ -367,6 +368,8 @@ export default {
         this.$bus.$emit('setData', data)
         this.$message.success(this.$t('import.importSuccess'))
         this.cancelImportMd()
+        this.cancel()
+        this.setActiveSidebar(null)
       } catch (error) {
         console.log(error)
         this.$message.error(this.$t('import.fileParsingFailed'))

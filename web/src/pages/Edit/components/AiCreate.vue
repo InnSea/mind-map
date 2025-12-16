@@ -175,9 +175,14 @@ export default {
     // 客户端连接检测
     async testConnect() {
       try {
+<<<<<<< HEAD
         await fetch(`http://test.classtorch.com/ai/test`, {
           method: 'GET',
           timeout: 60000
+=======
+        await fetch('/api/ai/test', {
+          method: 'GET'
+>>>>>>> e28ccbee
         })
         this.$message.success(this.$t('ai.connectSuccessful'))
         this.clientTipDialogVisible = false
@@ -205,9 +210,14 @@ export default {
       // 检查连接
       let isConnect = false
       try {
+<<<<<<< HEAD
         await fetch(`http://test.classtorch.com/ai/test`, {
           method: 'GET',
           timeout: 60000
+=======
+        await fetch('/api/ai/test', {
+          method: 'GET'
+>>>>>>> e28ccbee
         })
         isConnect = true
       } catch (error) {

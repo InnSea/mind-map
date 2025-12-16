@@ -507,6 +507,10 @@ export const langList = [
   {
     value: 'en',
     name: 'English'
+  },
+  {
+    value: 'vi',
+    name: 'Tiếng Việt'
   }
 ]
 
@@ -537,36 +541,30 @@ export const sidebarTriggerList = [
     value: 'outline',
     icon: 'iconfuhao-dagangshu'
   },
-  {
-    name: 'AI',
-    value: 'ai',
-    icon: 'iconAIshengcheng'
-  },
+  // {
+  //   name: 'AI',
+  //   value: 'ai',
+  //   icon: 'iconAIshengcheng'
+  // },
   {
     name: '设置',
     value: 'setting',
     icon: 'iconshezhi'
   },
-  {
-    name: '快捷键',
-    value: 'shortcutKey',
-    icon: 'iconjianpan'
-  }
+  // {
+  //   name: '快捷键',
+  //   value: 'shortcutKey',
+  //   icon: 'iconjianpan'
+  // }
 ]
 
 // 下载类型列表
 export const downTypeList = [
   {
-    name: '专有文件',
+    name: '导图文件',
     type: 'smm',
     icon: 'iconwenjian',
-    desc: 'SimpleMindMap私有格式，可用于再次导入，客户端可直接编辑'
-  },
-  {
-    name: 'JSON',
-    type: 'json',
-    icon: 'iconjson',
-    desc: '流行的数据交换格式，可用于再次导入'
+    desc: 'MindMap导图格式，可直接用于再次导入'
   },
   {
     name: '图片',
@@ -605,17 +603,23 @@ export const downTypeList = [
     desc: '纯文本文件'
   },
   {
+    name: 'Excel',
+    type: 'xlsx',
+    icon: 'iconfile-excel',
+    desc: '表格文本形式，可用Excel软件编辑'
+  },
+  {
     name: 'FreeMind',
     type: 'mm',
     icon: 'iconfreemind',
     desc: 'FreeMind软件格式'
   },
   {
-    name: 'Excel',
-    type: 'xlsx',
-    icon: 'iconfile-excel',
-    desc: '表格文本形式，可用Excel软件编辑'
-  }
+    name: 'JSON',
+    type: 'json',
+    icon: 'iconjson',
+    desc: '流行的数据交换格式，可用于再次导入'
+  },
 ]
 
 // 编号类型列表

@@ -481,8 +481,8 @@
           </div>
         </div>
         <!-- 节点内边距 -->
-        <div class="title noTop">{{ $t('style.nodePadding') }}</div>
-        <div class="row">
+        <div class="title">{{ $t('style.nodePadding') }}</div>
+        <div class="row noBottom">
           <div class="rowItem">
             <span class="name">{{ $t('style.horizontal') }}</span>
             <el-slider
@@ -503,7 +503,7 @@
           </div>
         </div>
         <!-- 节点图片布局 -->
-        <div class="title noTop">{{ $t('style.img') }}</div>
+        <div class="title">{{ $t('style.img') }}</div>
         <div class="row">
           <div class="rowItem">
             <span class="name">{{ $t('style.placement') }}</span>
@@ -528,7 +528,7 @@
           </div>
         </div>
         <!-- 节点标签布局 -->
-        <div class="title noTop">{{ $t('style.tag') }}</div>
+        <div class="title">{{ $t('style.tag') }}</div>
         <div class="row">
           <div class="rowItem">
             <span class="name">{{ $t('style.placement') }}</span>
@@ -635,23 +635,26 @@ export default {
     shapeList() {
       return [
         ...(shapeList[this.$i18n.locale] || shapeList.zh),
-        ...this.mindMap.extendShapeList.map(item => {
-          return {
-            width: '40px',
-            name: item.nameShow,
-            value: item.name
-          }
-        })
+        ...this.mindMap.extendShapeList
+          .filter(item => {
+            return !['fishHead'].includes(item.name)
+          })
+          .map(item => {
+            return {
+              width: '40px',
+              name: item.nameShow,
+              value: item.name
+            }
+          })
       ]
     },
     shapeListMap() {
-      const map = shapeListMap[this.$i18n.locale] || shapeListMap.zh
       const map2 = {}
       this.mindMap.extendShapeList.forEach(item => {
         map2[item.name] = item.path
       })
       return {
-        ...map,
+        ...shapeListMap,
         ...map2
       }
     },
@@ -854,7 +857,7 @@ export default {
     font-weight: 500;
     color: rgba(26, 26, 26, 0.9);
     margin-bottom: 10px;
-    margin-top: 20px;
+    margin-top: 35px;
 
     &.noTop {
       margin-top: 0;
@@ -865,6 +868,10 @@ export default {
     display: flex;
     justify-content: space-between;
     margin-bottom: 10px;
+
+    &.noBottom {
+      margin-bottom: 0;
+    }
 
     .btnGroup {
       width: 100%;

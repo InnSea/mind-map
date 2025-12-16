@@ -62,7 +62,7 @@
       <div class="item" @click="exec('EXPAND_ALL')">
         <span class="name">{{ $t('contextmenu.expandNodeChild') }}</span>
       </div>
-      <div class="item" v-if="supportNumbers">
+      <div class="item vip" v-if="supportNumbers">
         <span class="name">{{ $t('contextmenu.number') }}</span>
         <span class="el-icon-arrow-right"></span>
         <div
@@ -92,7 +92,7 @@
           </div>
         </div>
       </div>
-      <div class="item" @click="setCheckbox" v-if="supportCheckbox">
+      <div class="item vip" @click="setCheckbox" v-if="supportCheckbox">
         <span class="name">{{
           hasCheckbox ? $t('contextmenu.removeToDo') : $t('contextmenu.addToDo')
         }}</span>
@@ -134,14 +134,18 @@
       <div class="item" @click="exec('REMOVE_NOTE')" v-if="hasNote">
         <span class="name">{{ $t('contextmenu.removeNote') }}</span>
       </div>
-      <div class="item" @click="exec('LINK_NODE')">
+      <!-- <div class="item vip" @click="exec('LINK_NODE')">
         <span class="name">{{
           hasNodeLink
             ? $t('contextmenu.modifyNodeLink')
             : $t('contextmenu.linkToNode')
         }}</span>
-      </div>
-      <div class="item" @click="exec('REMOVE_LINK_NODE')" v-if="hasNodeLink">
+      </div> -->
+      <div
+        class="item vip"
+        @click="exec('REMOVE_LINK_NODE')"
+        v-if="hasNodeLink"
+      >
         <span class="name">{{ $t('contextmenu.removeNodeLink') }}</span>
       </div>
       <div class="item" @click="exec('REMOVE_CUSTOM_STYLES')">
@@ -152,7 +156,7 @@
       </div>
       <div class="splitLine" v-if="enableAi"></div>
       <div class="item" @click="aiCreate" v-if="enableAi">
-        <span class="name">{{ $t('contextmenu.aiCreate') }}</span>
+        <span class="name ai-gradient">{{ $t('contextmenu.aiCreate') }}</span>
       </div>
     </template>
     <template v-if="type === 'svg'">
@@ -625,6 +629,18 @@ export default {
   }
 }
 .contextmenuContainer {
+  .ai-gradient {
+    background: linear-gradient(90deg, #4f8cff 0%, #8f4fff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-fill-color: transparent;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    margin-right: 2px;
+  }
+
   position: fixed;
   font-size: 14px;
   font-family: PingFangSC-Regular, PingFang SC;

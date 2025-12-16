@@ -24,17 +24,25 @@
 </template>
 
 <script>
-import { nodeIconList } from 'simple-mind-map/src/svg/icons'
+import { nodeIconList as _nodeIconList } from 'simple-mind-map/src/svg/icons'
 import icon from '@/config/icon'
+import { mapState } from 'vuex'
 
 // 节点图标内容设置
 export default {
   data() {
     return {
-      nodeIconList: [...nodeIconList, ...icon],
       dialogVisible: false,
       iconList: [],
-      activeNodes: []
+      activeNodes: [],
+    }
+  },
+  computed: {
+    ...mapState({
+      dynamicIconList: state => state.dynamicIconList
+    }),
+    nodeIconList() {
+      return [..._nodeIconList, ...this.dynamicIconList, ...icon]
     }
   },
   created() {

@@ -9,6 +9,9 @@ import 'viewerjs/dist/viewer.css'
 import VueViewer from 'v-viewer'
 import i18n from './i18n'
 import { getLang } from '@/api'
+import MessagePlugin from '@/plugins/msgPlugin'
+import externalEnvironmentMixin from './mixin/externalEnvironment.js'
+
 // import VConsole from 'vconsole'
 // const vConsole = new VConsole()
 
@@ -17,6 +20,9 @@ const bus = new Vue()
 Vue.prototype.$bus = bus
 Vue.use(ElementUI)
 Vue.use(VueViewer)
+Vue.use(MessagePlugin)
+
+Vue.mixin(externalEnvironmentMixin)
 
 const initApp = () => {
   i18n.locale = getLang()

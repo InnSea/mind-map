@@ -439,36 +439,30 @@ export const sidebarTriggerList = [
     value: 'outline',
     icon: 'iconfuhao-dagangshu'
   },
-  {
-    name: 'AI',
-    value: 'ai',
-    icon: 'iconAIshengcheng'
-  },
+  // {
+  //   name: 'AI',
+  //   value: 'ai',
+  //   icon: 'iconAIshengcheng'
+  // },
   {
     name: '設置',
     value: 'setting',
     icon: 'iconshezhi'
   },
-  {
-    name: '快捷鍵',
-    value: 'shortcutKey',
-    icon: 'iconjianpan'
-  }
+  // {
+  //   name: '快捷鍵',
+  //   value: 'shortcutKey',
+  //   icon: 'iconjianpan'
+  // }
 ]
 
 // 下載類型列表
 export const downTypeList = [
   {
-    name: '專用檔案',
+    name: '導圖檔案',
     type: 'smm',
     icon: 'iconwenjian',
-    desc: 'SimpleMindMap私有格式，可用于再次導入，客戶端可直接編輯'
-  },
-  {
-    name: 'JSON',
-    type: 'json',
-    icon: 'iconjson',
-    desc: '流行的數據交換格式，可用于再次導入'
+    desc: 'MindMap導圖格式，可直接用於再次導入'
   },
   {
     name: '圖片',
@@ -507,17 +501,23 @@ export const downTypeList = [
     desc: '純文本文件'
   },
   {
+    name: 'Excel',
+    type: 'xlsx',
+    icon: 'iconfile-excel',
+    desc: '表格文本形式，可用Excel軟件編輯'
+  },
+  {
     name: 'FreeMind',
     type: 'mm',
     icon: 'iconfreemind',
     desc: 'FreeMind軟件格式'
   },
   {
-    name: 'Excel',
-    type: 'xlsx',
-    icon: 'iconfile-excel',
-    desc: '表格文本形式，可用Excel軟件編輯'
-  }
+    name: 'JSON',
+    type: 'json',
+    icon: 'iconjson',
+    desc: '流行的數據交換格式，可用于再次導入'
+  },
 ]
 
 // 編號類型列表

@@ -64,7 +64,6 @@ class Ai {
       }
     } catch (error) {
       console.log(error)
-      // 手动停止请求不需要触发错误回调
       if (!(error && error.name === 'AbortError')) {
         err(error)
       }
@@ -73,7 +72,11 @@ class Ai {
 
   async postMsg(data) {
     this.controller = new AbortController()
+<<<<<<< HEAD
     const res = await fetch(`http://test.classtorch.com/ai/chat`, {
+=======
+    const res = await fetch("/api/ai/chat", {
+>>>>>>> e28ccbee
       signal: this.controller.signal,
       method: 'POST',
       headers: {
@@ -96,16 +99,13 @@ class Ai {
 
   handleChunkData(chunk) {
     chunk = chunk.trim()
-    // 如果存在上一个切片
     if (this.currentChunk) {
       chunk = this.currentChunk + chunk
       this.currentChunk = ''
     }
-    // 如果存在done,认为是完整切片且是最后一个切片
     if (chunk.includes('[DONE]')) {
       return chunk
     }
-    // 最后一个字符串不为}，则默认切片不完整，保存与下次拼接使用（这种方法不严谨，但已经能解决大部分场景的问题）
     if (chunk[chunk.length - 1] !== '}') {
       this.currentChunk = chunk
     }

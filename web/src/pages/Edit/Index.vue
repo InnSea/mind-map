@@ -4,8 +4,8 @@
     :class="{ isDark: isDark, activeSidebar: activeSidebar }"
   >
     <template v-if="show">
-      <Toolbar v-if="!isZenMode"></Toolbar>
-      <Edit></Edit>
+      <Toolbar v-if="!isZenMode" />
+      <Edit />
     </template>
   </div>
 </template>

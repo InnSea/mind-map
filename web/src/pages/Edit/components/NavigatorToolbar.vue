@@ -80,7 +80,7 @@
         @click="toggleDark"
       ></div>
     </div>
-    <div class="item">
+    <!-- <div class="item">
       <el-tooltip
         effect="dark"
         :content="$t('navigatorToolbar.changeSourceCodeEdit')"
@@ -88,7 +88,7 @@
       >
         <div class="btn iconfont iconyuanma" @click="openSourceCodeEdit"></div>
       </el-tooltip>
-    </div>
+    </div> -->
     <div class="item">
       <Demonstrate :isDark="isDark" :mindMap="mindMap"></Demonstrate>
     </div>
@@ -137,7 +137,12 @@ export default {
     this.lang = getLang()
   },
   methods: {
-    ...mapMutations(['setLocalConfig', 'setIsReadonly', 'setIsSourceCodeEdit']),
+    ...mapMutations([
+      'setLocalConfig',
+      'setIsReadonly',
+      'setIsSourceCodeEdit',
+      'setActiveSidebar'
+    ]),
 
     readonlyChange() {
       this.setIsReadonly(!this.isReadonly)
@@ -166,6 +171,20 @@ export default {
     },
 
     handleCommand(command) {
+      if (command === 'shortcutKey') {
+        this.setActiveSidebar('shortcutKey')
+        return
+      } else if (command === 'aiChat') {
+        this.setActiveSidebar('ai')
+        return
+      } else if (command === 'client') {
+        this.$bus.$emit(
+          'showDownloadTip',
+          this.$t('navigatorToolbar.downloadClient'),
+          this.$t('navigatorToolbar.downloadDesc')
+        )
+        return
+      }
       let url = ''
       switch (command) {
         case 'github':
@@ -184,8 +203,7 @@ export default {
         case 'issue':
           url = 'https://github.com/wanglin2/mind-map/issues/new'
           break
-        case 'client':
-          url = 'https://pan.baidu.com/s/1huasEbKsGNH2Af68dvWiOg?pwd=3bp3'
+
         default:
           break
       }
