@@ -97,6 +97,17 @@ body {
       color: hsla(0, 0%, 100%, 0.3);
     }
 
+    /* el-textarea */
+    .el-textarea__inner {
+      background-color: #363b3f;
+      border-color: hsla(0, 0%, 100%, 0.1);
+      color: hsla(0, 0%, 100%, 0.9);
+    }
+
+    .el-textarea__inner::placeholder {
+      color: hsla(0, 0%, 100%, 0.4);
+    }
+
     .el-input-group__append,
     .el-input-group__prepend {
       background-color: #363b3f;

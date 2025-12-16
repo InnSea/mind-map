@@ -72,11 +72,7 @@ class Ai {
 
   async postMsg(data) {
     this.controller = new AbortController()
-<<<<<<< HEAD
-    const res = await fetch(`http://test.classtorch.com/ai/chat`, {
-=======
     const res = await fetch("/api/ai/chat", {
->>>>>>> e28ccbee
       signal: this.controller.signal,
       method: 'POST',
       headers: {

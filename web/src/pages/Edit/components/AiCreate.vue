@@ -27,9 +27,12 @@
         </p>
       </div>
       <div slot="footer" class="dialog-footer">
-        <el-button size="mini" type="primary" @click="clientTipDialogVisible = false">{{
-          $t('ai.close')
-        }}</el-button>
+        <el-button
+          size="mini"
+          type="primary"
+          @click="clientTipDialogVisible = false"
+          >{{ $t('ai.close') }}</el-button
+        >
       </div>
     </el-dialog>
     <!-- ai内容输入弹窗 -->
@@ -175,14 +178,9 @@ export default {
     // 客户端连接检测
     async testConnect() {
       try {
-<<<<<<< HEAD
-        await fetch(`http://test.classtorch.com/ai/test`, {
+        await fetch("/api/ai/test", {
           method: 'GET',
           timeout: 60000
-=======
-        await fetch('/api/ai/test', {
-          method: 'GET'
->>>>>>> e28ccbee
         })
         this.$message.success(this.$t('ai.connectSuccessful'))
         this.clientTipDialogVisible = false
@@ -210,14 +208,8 @@ export default {
       // 检查连接
       let isConnect = false
       try {
-<<<<<<< HEAD
-        await fetch(`http://test.classtorch.com/ai/test`, {
-          method: 'GET',
-          timeout: 60000
-=======
         await fetch('/api/ai/test', {
           method: 'GET'
->>>>>>> e28ccbee
         })
         isConnect = true
       } catch (error) {

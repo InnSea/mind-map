@@ -143,16 +143,6 @@
         </div>
       </div>
     </div>
-<<<<<<< HEAD
-    <span slot="footer" class="dialog-footer">
-=======
-    <!-- <span slot="footer" class="dialog-footer">
->>>>>>> e28ccbee
-      <el-button size="mini" @click="cancel">{{ $t('dialog.cancel') }}</el-button>
-      <el-button size="mini" type="primary" @click="confirm">{{
-        $t('dialog.confirm')
-      }}</el-button>
-    </span> -->
   </el-dialog>
 </template>
 

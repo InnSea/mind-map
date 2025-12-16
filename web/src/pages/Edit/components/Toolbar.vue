@@ -29,15 +29,7 @@
       </div>
       <!-- 导出 -->
       <div class="toolbarBlock">
-<<<<<<< HEAD
         <div class="toolbarBtn" @click="$bus.$emit('showImport')">
-=======
-        <div
-          class="toolbarBtn"
-          @click="$bus.$emit('showImport')"
-          v-if="!isPublic"
-        >
->>>>>>> e28ccbee
           <span class="icon iconfont icondaoru"></span>
           <span class="text">{{ $t('toolbar.import') }}</span>
         </div>

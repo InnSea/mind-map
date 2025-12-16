@@ -31,7 +31,7 @@ import { sidebarTriggerList } from '@/config'
 export default {
   data() {
     return {
-      show: false,
+      show: true,
       maxHeight: 0
     }
   },

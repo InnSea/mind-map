@@ -44,13 +44,8 @@ const store = new Vuex.Store({
     isDragOutlineTreeNode: false, // 当前是否正在拖拽大纲树的节点
     aiConfig: {
       api: 'http://ark.cn-beijing.volces.com/api/v3/chat/completions',
-<<<<<<< HEAD
-      key: '8100dbe4-a7d6-49e9-adee-50bc1e10d1c8',
-      model: 'ep-20250410124115-mzzwj',
-=======
       key: '2f27c118-5cf7-4117-9ddc-206c47e11257',
       model: 'deepseek-v3-2-251201',
->>>>>>> e28ccbee
       port: 3456,
       method: 'POST'
     },
