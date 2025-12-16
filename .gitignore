@@ -1,9 +1,26 @@
-node_modules
 .DS_Store
-dist_electron
-simple-mind-map/dist
-simple-mind-map/types
-utools/dist
-.history
+node_modules/
+yarn.lock
+# dist/
+
+
+# local env files
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# CustomEditor directories and files
+.fleet
 .idea
 .vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.history
