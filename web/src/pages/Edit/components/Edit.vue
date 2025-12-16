@@ -284,11 +284,7 @@ export default {
     this.$bus.$on('startPainter', this.handleStartPainter)
     this.$bus.$on('node_tree_render_end', this.handleHideLoading)
     this.$bus.$on('showLoading', this.handleShowLoading)
-    this.$bus.$on('localStorageExceeded', this.onLocalStorageExceeded)
     window.addEventListener('resize', this.handleResize)
-    document.body.addEventListener('click', this.onVipCheckClick)
-    this.$bus.$on('showDownloadTip', this.showDownloadTip)
-    this.$bus.$on('vipCheckClick', this.onVipCheckClick)
   },
   beforeDestroy() {
     this.$bus.$off('execCommand', this.execCommand)
@@ -301,23 +297,10 @@ export default {
     this.$bus.$off('startPainter', this.handleStartPainter)
     this.$bus.$off('node_tree_render_end', this.handleHideLoading)
     this.$bus.$off('showLoading', this.handleShowLoading)
-    this.$bus.$off('localStorageExceeded', this.onLocalStorageExceeded)
     window.removeEventListener('resize', this.handleResize)
-    document.body.removeEventListener('click', this.onVipCheckClick)
-    this.$bus.$off('showDownloadTip', this.showDownloadTip)
-    this.$bus.$off('vipCheckClick', this.onVipCheckClick)
     this.mindMap.destroy()
   },
   methods: {
-    onLocalStorageExceeded() {
-      this.$notify({
-        type: 'warning',
-        title: this.$t('edit.tip'),
-        message: this.$t('edit.localStorageExceededTip'),
-        duration: 0
-      })
-    },
-
     handleStartTextEdit() {
       this.mindMap.renderer.startTextEdit()
     },
@@ -801,74 +784,6 @@ export default {
       if (!file) return
       this.$bus.$emit('importFile', file)
     },
-
-    // 网页版功能试用提示
-    onVipCheckClick(e) {
-      const el = getParentWithClass(e.target, 'vip')
-      if (el) {
-        const className = el.classList.value.split(/\s+/).join('_')
-        const storageKey = 'VIP_USAGE_TIP'
-        let data = localStorage.getItem(storageKey)
-        if (data) {
-          data = JSON.parse(data)
-        } else {
-          data = {}
-        }
-        if (!data[className]) {
-          data[className] = 0
-        }
-        data[className]++
-        if (data[className] > 3) {
-          this.showDownloadTip(
-            this.$t('edit.tryTipTitle'),
-            this.$t('edit.tryTipDesc')
-          )
-        }
-        localStorage.setItem(storageKey, JSON.stringify(data))
-      }
-    },
-
-    showDownloadTip(title, desc) {
-      const h = this.$createElement
-      this.$msgbox({
-        title,
-        message: h('div', null, [
-          h('p', null, desc),
-          h('div', null, [
-            h(
-              'a',
-              {
-                attrs: {
-                  href:
-                    'https://pan.baidu.com/s/1huasEbKsGNH2Af68dvWiOg?pwd=3bp3',
-                  target: '_blank'
-                },
-                style: {
-                  color: '#409eff',
-                  marginRight: '12px'
-                }
-              },
-              this.$t('edit.downBaidu')
-            ),
-            h(
-              'a',
-              {
-                attrs: {
-                  href: 'https://github.com/wanglin2/mind-map/releases',
-                  target: '_blank'
-                },
-                style: {
-                  color: '#409eff'
-                }
-              },
-              this.$t('edit.downGithub')
-            )
-          ])
-        ]),
-        showCancelButton: false,
-        showConfirmButton: false
-      })
-    }
   }
 }
 </script>
