@@ -1,1 +1,0 @@
-https://github.com/wanglin2/mind-map/blob/main/web/src/pages/Edit/components/NodeIconSidebar.vue
