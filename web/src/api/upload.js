@@ -5,7 +5,7 @@ export const uploadImage = async (file) => {
   formData.append('file', file)
   
   try {
-    const response = await axios.post('/api/oss/mindmap/img', formData, {
+    const response = await axios.post('https://test.classtorch.com/api/oss/mindmap/img', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }

@@ -62,7 +62,7 @@ function stringToColor(str) {
   return colors[Math.abs(hash) % colors.length]
 }
 
-async function loadUserIconList() {
+export default async function loadUserIconList() {
   try {
     const response = await fetch(
       'https://test.classtorch.com/api/auth/user/list?page=1&size=1000'
@@ -71,7 +71,12 @@ async function loadUserIconList() {
     if (result.code === 0 && Array.isArray(result.data)) {
       const iconList = result.data
         .filter(user => user.name && user.is_del === 0)
-        .map(user => generateAvatarSvg(user.name, stringToColor(user.name)))
+        .map(user => {
+          return {
+            uid: user.id,
+            icon: generateAvatarSvg(user.name, stringToColor(user.name))
+          }
+        })
       return iconList
     }
     return []
@@ -80,5 +85,3 @@ async function loadUserIconList() {
     return []
   }
 }
-
-export default loadUserIconList

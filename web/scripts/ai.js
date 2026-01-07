@@ -36,7 +36,7 @@ const createServe = () => {
   })
 
   // 监听对话请求
-  app.get('/api/ai/test', (req, res) => {
+  app.get('https://test.classtorch.com/api/ai/test', (req, res) => {
     res
       .json({
         code: 0,
@@ -45,7 +45,7 @@ const createServe = () => {
       })
       .end()
   })
-  app.post('/api/ai/chat', async (req, res, next) => {
+  app.post('https://test.classtorch.com/api/ai/chat', async (req, res, next) => {
     // 设置SSE响应头
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')

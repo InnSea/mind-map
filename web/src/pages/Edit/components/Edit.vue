@@ -235,7 +235,7 @@ export default {
       extraTextOnExport: state => state.extraTextOnExport,
       isDragOutlineTreeNode: state => state.isDragOutlineTreeNode,
       enableAi: state => state.localConfig.enableAi,
-      supportNodeLink: state => state.supportNodeLink,
+      supportNodeLink: state => state.supportNodeLink
     })
   },
   watch: {
@@ -266,7 +266,7 @@ export default {
       } else {
         this.removeMomentumPlugin()
       }
-    },
+    }
   },
   async mounted() {
     showLoading()
@@ -370,15 +370,14 @@ export default {
           {
             name: '用户图标',
             type: 'user',
-            list: userList.map((item, index) => ({
-              name: String(index + 1),
-              icon: item
+            list: userList.map(item => ({
+              name: String(item.uid),
+              icon: item.icon
             }))
           }
         ]
         this.$store.commit('setDynamicIconList', this.preloadedUserIcons)
       } catch (e) {
-        console.error('预加载用户图标失败', e)
         this.preloadedUserIcons = []
       }
     },
@@ -783,7 +782,7 @@ export default {
       const file = dt.files && dt.files[0]
       if (!file) return
       this.$bus.$emit('importFile', file)
-    },
+    }
   }
 }
 </script>

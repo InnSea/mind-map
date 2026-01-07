@@ -178,7 +178,7 @@ export default {
     // 客户端连接检测
     async testConnect() {
       try {
-        await fetch("/api/ai/test", {
+        await fetch("https://test.classtorch.com/api/ai/test", {
           method: 'GET',
           timeout: 60000
         })
@@ -208,7 +208,7 @@ export default {
       // 检查连接
       let isConnect = false
       try {
-        await fetch('/api/ai/test', {
+        await fetch('https://test.classtorch.com/api/ai/test', {
           method: 'GET'
         })
         isConnect = true
