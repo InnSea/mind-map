@@ -1040,7 +1040,7 @@ export default {
 
     // 初始化彩虹线条配置
     initRainbowLines() {
-      const config = this.mindMap.getConfig('rainbowLinesConfig') || {}
+      const config = this.data.theme.config.rainbowLinesConfig || {}
       this.curRainbowLineColorList = config.open
         ? this.mindMap.rainbowLines
           ? this.mindMap.rainbowLines.getColorsList()
@@ -1100,9 +1100,14 @@ export default {
           open: false
         }
       }
-      this.configData.rainbowLinesConfig = newConfig
-      this.mindMap.rainbowLines.updateRainLinesConfig(newConfig)
-      storeConfig(this.configData)
+      this.data.theme.config.rainbowLinesConfig = newConfig
+      this.mindMap.setThemeConfig(this.data.theme.config)
+      storeData({
+        theme: {
+          template: this.mindMap.getTheme(),
+          config: this.data.theme.config
+        }
+      })
     },
 
     // 更新外框

@@ -70,7 +70,7 @@ export default async function loadUserIconList() {
     const result = await response.json()
     if (result.code === 0 && Array.isArray(result.data)) {
       const iconList = result.data
-        .filter(user => user.name && user.is_del === 0)
+        .filter(user => user.name && user.is_valid && user.is_del === 0)
         .map(user => {
           return {
             uid: user.id,

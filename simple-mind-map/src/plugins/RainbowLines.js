@@ -16,15 +16,20 @@ class RainbowLines {
     this.mindMap = mindMap
   }
 
+  // 获取彩虹线条配置，从 themeConfig 读取
+  getRainbowLinesConfig() {
+    return this.mindMap.opt.themeConfig?.rainbowLinesConfig || {}
+  }
+
   // 更新彩虹线条配置
   updateRainLinesConfig(config = {}) {
-    const newConfig = this.mindMap.opt.rainbowLinesConfig || {}
-    newConfig.open = !!config.open
-    newConfig.colorsList = Array.isArray(config.colorsList)
+    const rainbowLinesConfig = this.getRainbowLinesConfig()
+    rainbowLinesConfig.open = !!config.open
+    rainbowLinesConfig.colorsList = Array.isArray(config.colorsList)
       ? config.colorsList
       : []
     // 如果开启彩虹线条，那么先移除所有节点的自定义连线颜色配置
-    if (this.mindMap.opt.rainbowLinesConfig.open) {
+    if (rainbowLinesConfig.open) {
       this.removeNodeLineColor()
     }
     this.mindMap.render()
@@ -67,7 +72,7 @@ class RainbowLines {
 
   // 获取颜色列表
   getColorsList() {
-    const { rainbowLinesConfig } = this.mindMap.opt
+    const rainbowLinesConfig = this.getRainbowLinesConfig()
     return rainbowLinesConfig &&
       Array.isArray(rainbowLinesConfig.colorsList) &&
       rainbowLinesConfig.colorsList.length > 0
@@ -77,7 +82,7 @@ class RainbowLines {
 
   // 获取一个节点的彩虹线条颜色
   getNodeColor(node) {
-    const { rainbowLinesConfig } = this.mindMap.opt
+    const rainbowLinesConfig = this.getRainbowLinesConfig()
     if (!rainbowLinesConfig || !rainbowLinesConfig.open) return ''
     const ancestor = this.getSecondLayerAncestor(node)
     if (!ancestor) return

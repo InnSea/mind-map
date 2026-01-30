@@ -400,14 +400,46 @@ export default {
       walk(data)
     },
 
+    // 获取从当前节点到根节点的路径链
+    getNodePathToRoot(node) {
+      const path = []
+      let currentNode = node
+      while (currentNode) {
+        path.unshift({
+          text: getStrWithBrFromHtml(currentNode.getData('text')),
+          note: currentNode.getData('note') || '',
+          tag: currentNode.getData('tag') || []
+        })
+        currentNode = currentNode.parent
+      }
+      return path
+    },
+
+    // 将路径链格式化为可读字符串
+    formatNodePath(path) {
+      return path
+        .map((item, index) => {
+          let nodeInfo = `${'  '.repeat(index)}${index === 0 ? '' : '└─ '}${item.text}`
+          if (item.note) {
+            nodeInfo += ` (备注: ${item.note})`
+          }
+          if (item.tag && item.tag.length > 0) {
+            const tags = Array.isArray(item.tag) ? item.tag.map(t => typeof t === 'string' ? t : t.text).join(', ') : item.tag
+            nodeInfo += ` [标签: ${tags}]`
+          }
+          return nodeInfo
+        })
+        .join('\n')
+    },
+
     // 显示AI续写弹窗
     showAiCreatePartDialog(node) {
       this.beingCreatePartNode = node
-      const currentMindMapData = this.mindMap.getData()
-      // 填充默认内容
+      const nodePath = this.getNodePathToRoot(node)
+      const formattedPath = this.formatNodePath(nodePath)
       this.aiPartInput = `${this.$t(
         'ai.aiCreatePartMsgPrefix'
-      )}${getStrWithBrFromHtml(currentMindMapData.data.text)}${this.$t(
+      )}\n\n从根节点到当前节点的路径结构：\n${formattedPath}\n\n${this.$t(
         'ai.aiCreatePartMsgCenter'
       )}${getStrWithBrFromHtml(node.getData('text'))}${this.$t(
         'ai.aiCreatePartMsgPostfix'

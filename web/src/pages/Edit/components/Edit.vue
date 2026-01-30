@@ -145,6 +145,7 @@ import AiCreate from './AiCreate.vue'
 import AiChat from './AiChat.vue'
 import LinkNodeSelect from './LinkNodeSelect.vue'
 import loadUserIconList from '@/config/userIcon'
+import { uploadImage } from '@/api/upload'
 
 // 注册插件
 MindMap.usePlugin(MiniMap)
@@ -482,6 +483,26 @@ export default {
                 resolve(true)
               })
           })
+        },
+        handleNodePasteImg: async file => {
+          try {
+            const url = await uploadImage(file)
+            const size = await new Promise(resolve => {
+              const img = new Image()
+              img.onload = () => {
+                resolve({ width: img.width, height: img.height })
+              }
+              img.onerror = () => {
+                resolve({ width: 100, height: 100 })
+              }
+              img.src = url
+            })
+
+            return { url, size }
+          } catch (error) {
+            console.error('粘贴图片上传失败:', error)
+            throw error
+          }
         }
       })
       this.loadPlugins()
