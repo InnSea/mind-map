@@ -96,6 +96,7 @@ import NodeBase64ImageStorage from 'simple-mind-map/src/plugins/NodeBase64ImageS
 import Themes from 'simple-mind-map-plugin-themes'
 import Cooperate from 'simple-mind-map/src/plugins/Cooperate.js'
 // 协同编辑插件
+import IncrementalSync from 'simple-mind-map/src/plugins/IncrementalSync.js'
 import Notation from 'simple-mind-map/src/plugins/notation/dist/notation.esm.min.js'
 // npm link simple-mind-map simple-mind-map-plugin-excel simple-mind-map-plugin-freemind simple-mind-map-plugin-numbers simple-mind-map-plugin-notation simple-mind-map-plugin-handdrawnlikestyle simple-mind-map-plugin-checkbox simple-mind-map-plugin-lineflow simple-mind-map-plugin-momentum simple-mind-map-plugin-right-fishbone simple-mind-map-plugin-node-link
 // simple-mind-map-plugin-themes
@@ -168,6 +169,7 @@ MindMap.usePlugin(MiniMap)
   .usePlugin(MindMapLayoutPro)
   .usePlugin(NodeBase64ImageStorage)
   .usePlugin(Notation)
+  .usePlugin(IncrementalSync) // 增量同步插件
 // .usePlugin(Cooperate) // 协同插件
 
 // 注册主题
@@ -516,6 +518,7 @@ export default {
         'data_change',
         'view_data_change',
         'back_forward',
+        'data_change_detail',
         'node_contextmenu',
         'node_click',
         'draw_click',
