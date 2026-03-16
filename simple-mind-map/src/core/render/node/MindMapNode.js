@@ -144,7 +144,7 @@ class MindMapNode {
         proto[item] = nodeCreateContentsMethods[item]
       })
       // 协同相关
-      if (this.mindMap.cooperate) {
+      if (this.mindMap.cooperate || this.mindMap.incrementalSync) {
         Object.keys(nodeCooperateMethods).forEach(item => {
           proto[item] = nodeCooperateMethods[item]
         })

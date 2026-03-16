@@ -170,7 +170,7 @@ MindMap.usePlugin(MiniMap)
   .usePlugin(NodeBase64ImageStorage)
   .usePlugin(Notation)
   .usePlugin(IncrementalSync) // 增量同步插件
-// .usePlugin(Cooperate) // 协同插件
+//.usePlugin(Cooperate) // 协同插件
 
 // 注册主题
 Themes.init(MindMap)

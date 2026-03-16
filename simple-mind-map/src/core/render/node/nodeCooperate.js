@@ -1,12 +1,12 @@
-import { Circle, G, Text, Image } from '@svgdotjs/svg.js'
+import { Circle, G, Text, Image, Rect } from '@svgdotjs/svg.js'
 import { generateColorByContent } from '../../../utils/index'
 
 // 协同相关功能
 
 // 创建容器
 function createUserListNode() {
-  // 如果没有注册协作插件，那么需要创建
-  if (!this.mindMap.cooperate) return
+  // 如果没有注册协作插件或增量同步插件，那么不需要创建
+  if (!this.mindMap.cooperate && !this.mindMap.incrementalSync) return
   this._userListGroup = new G()
   this.group.add(this._userListGroup)
 }
@@ -76,9 +76,29 @@ function updateUserListNode() {
     node.on('mouseleave', (e) => {
       this.mindMap.emit('node_cooperate_avatar_mouseleave', item, this, node, e)
     })
-    node.x(index * avatarSize).cy(-avatarSize / 2)
+    node.x(index * avatarSize - avatarSize / 2).cy(-avatarSize / 2)
     this._userListGroup.add(node)
   })
+  // 有协同用户时显示独立的协同选中框
+  if (this.group) {
+    if (this._cooperateBorderNode) {
+      this._cooperateBorderNode.remove()
+      this._cooperateBorderNode = null
+    }
+    if (this.userList.length > 0) {
+      const { hoverRectPadding } = this.mindMap.opt
+      const firstUser = this.userList[0]
+      const color = firstUser.color || generateColorByContent(String(firstUser.name)[0])
+      this._cooperateBorderNode = new Rect()
+        .size(this.width + hoverRectPadding * 2, this.height + hoverRectPadding * 2)
+        .x(-hoverRectPadding)
+        .y(-hoverRectPadding)
+        .fill('none')
+        .stroke({ color: color, width: 2 })
+        .radius(5)
+      this.group.add(this._cooperateBorderNode)
+    }
+  }
 }
 
 // 添加用户
