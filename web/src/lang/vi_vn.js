@@ -106,6 +106,7 @@ export default {
     moveDownNode: 'Di chuyển nút xuống',
     deleteNode: 'Xóa nút',
     deleteCurrentNode: 'Chỉ xóa nút hiện tại',
+    copyNodeId: 'Sao chép ID nút',
     copyNode: 'Sao chép nút',
     cutNode: 'Cắt nút',
     pasteNode: 'Dán nút',

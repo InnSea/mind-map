@@ -105,6 +105,7 @@ export default {
     moveDownNode: 'Move down node',
     deleteNode: 'Delete node',
     deleteCurrentNode: 'Only del cur node',
+    copyNodeId: 'Copy node ID',
     copyNode: 'Copy node',
     cutNode: 'Cut node',
     pasteNode: 'Paste node',

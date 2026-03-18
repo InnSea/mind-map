@@ -101,6 +101,7 @@ export default {
     moveDownNode: '下移节点',
     deleteNode: '删除节点',
     deleteCurrentNode: '仅删除当前节点',
+    copyNodeId: '复制节点ID',
     copyNode: '复制节点',
     cutNode: '剪切节点',
     pasteNode: '粘贴节点',

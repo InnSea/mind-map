@@ -107,6 +107,9 @@
         <span class="desc">Shift + Backspace</span>
       </div>
       <div class="splitLine"></div>
+      <div class="item" @click="copyNodeId">
+        <span class="name">{{ $t('contextmenu.copyNodeId') }}</span>
+      </div>
       <div
         class="item"
         @click="exec('COPY_NODE')"
@@ -604,6 +607,19 @@ export default {
         console.log(error)
         this.$message.error(this.$t('contextmenu.copyFail'))
       }
+    },
+
+    // 复制节点ID
+    copyNodeId() {
+      if (this.node && this.node.uid) {
+        if (this.enableCopyToClipboardApi) {
+          navigator.clipboard.writeText(this.node.uid)
+        } else {
+          copy(this.node.uid)
+        }
+        this.$message.success(this.$t('contextmenu.copySuccess'))
+      }
+      this.hide()
     },
 
     // AI续写
