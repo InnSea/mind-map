@@ -369,6 +369,7 @@ export default {
     yes: 'Yes',
     no: 'No',
     exportError: 'Export failed',
+    shareNoCooperateTip: 'Collaborative editing is not supported on shared pages',
     dragTip: 'Release here to import the file',
     deleteNodeImgTip: 'Are you sure to delete the node image?',
     autoOpenNodeRichTextTip:

@@ -367,6 +367,7 @@ export default {
     yes: 'Có',
     no: 'Không',
     exportError: 'Xuất thất bại',
+    shareNoCooperateTip: 'Trang chia sẻ không hỗ trợ chỉnh sửa cộng tác',
     dragTip: 'Thả ở đây để nhập tệp',
     deleteNodeImgTip: 'Bạn có chắc xóa hình ảnh nút?',
     autoOpenNodeRichTextTip:

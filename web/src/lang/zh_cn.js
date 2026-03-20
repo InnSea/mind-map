@@ -359,6 +359,7 @@ export default {
     yes: '是',
     no: '否',
     exportError: '导出失败',
+    shareNoCooperateTip: '分享页面不支持协同编辑',
     dragTip: '在此释放以导入该文件',
     deleteNodeImgTip: '是否确认删除该节点图片？',
     autoOpenNodeRichTextTip: '检测到导入了富文本内容，已自动开启富文本模式',

@@ -11,6 +11,10 @@
       id="mindMapContainer"
       ref="mindMapContainer"
     ></div>
+    <div class="shareCooperateTip" :class="{ isDark: isDark }" v-if="showShareTip && externalEnvironment.isPublic">
+      {{ $t('edit.shareNoCooperateTip') }}
+      <span class="shareCooperateTipClose" @click="closeShareTip">×</span>
+    </div>
     <Count :mindMap="mindMap" v-if="!isZenMode"></Count>
     <Navigator v-if="mindMap" :mindMap="mindMap"></Navigator>
     <NavigatorToolbar :mindMap="mindMap" v-if="!isZenMode"></NavigatorToolbar>
@@ -221,7 +225,8 @@ export default {
       mindMapConfig: {},
       prevImg: '',
       storeConfigTimer: null,
-      showDragMask: false
+      showDragMask: false,
+      showShareTip: !localStorage.getItem('SHARE_COOPERATE_TIP_CLOSED')
     }
   },
   computed: {
@@ -238,7 +243,8 @@ export default {
       extraTextOnExport: state => state.extraTextOnExport,
       isDragOutlineTreeNode: state => state.isDragOutlineTreeNode,
       enableAi: state => state.localConfig.enableAi,
-      supportNodeLink: state => state.supportNodeLink
+      supportNodeLink: state => state.supportNodeLink,
+      isDark: state => state.localConfig.isDark
     })
   },
   watch: {
@@ -791,6 +797,12 @@ export default {
       }
     },
 
+    // 关闭分享提示
+    closeShareTip() {
+      this.showShareTip = false
+      localStorage.setItem('SHARE_COOPERATE_TIP_CLOSED', '1')
+    },
+
     // 拖拽文件到页面导入
     onDragenter() {
       if (!this.enableDragImport || this.isDragOutlineTreeNode) return
@@ -834,6 +846,51 @@ export default {
     .dragTip {
       pointer-events: none;
       font-weight: bold;
+    }
+  }
+
+  .shareCooperateTip {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: #666;
+    font-size: 12px;
+    z-index: 100;
+    user-select: none;
+    background: rgba(0, 0, 0, 0.06);
+    padding: 4px 10px;
+    border-radius: 10px;
+    animation: tipFadeIn 0.6s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    &.isDark {
+      color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .shareCooperateTipClose {
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      opacity: 0.5;
+      transition: opacity 0.2s;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+
+  @keyframes tipFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 
