@@ -1195,6 +1195,7 @@ class Render {
   copy() {
     this.beingCopyData = this.copyNode()
     if (!this.beingCopyData) return
+    this.transformCopyData(this.beingCopyData)
     if (!this.mindMap.opt.disabledClipboard) {
       setDataToClipboard(createSmmFormatData(this.beingCopyData))
     }
@@ -1204,10 +1205,27 @@ class Render {
   cut() {
     this.mindMap.execCommand('CUT_NODE', copyData => {
       this.beingCopyData = copyData
+      this.transformCopyData(copyData)
       if (!this.mindMap.opt.disabledClipboard) {
         setDataToClipboard(createSmmFormatData(copyData))
       }
     })
+  }
+
+  transformCopyData(copyData) {
+    const imgMap = this.renderTree?.data?.imgMap
+    if (!imgMap) return
+    const walk = list => {
+      list.forEach(node => {
+        if (node.data && node.data.image && imgMap[node.data.image]) {
+          node.data.image = imgMap[node.data.image]
+        }
+        if (node.children && node.children.length > 0) {
+          walk(node.children)
+        }
+      })
+    }
+    walk(copyData)
   }
 
   // 非https下复制黏贴，获取内容方法
