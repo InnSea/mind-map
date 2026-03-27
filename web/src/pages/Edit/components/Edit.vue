@@ -98,7 +98,7 @@ import OuterFrame from 'simple-mind-map/src/plugins/OuterFrame.js'
 import MindMapLayoutPro from 'simple-mind-map/src/plugins/MindMapLayoutPro.js'
 import NodeBase64ImageStorage from 'simple-mind-map/src/plugins/NodeBase64ImageStorage.js'
 import Themes from 'simple-mind-map-plugin-themes'
-import Cooperate from 'simple-mind-map/src/plugins/Cooperate.js'
+// import Cooperate from 'simple-mind-map/src/plugins/Cooperate.js'
 // 协同编辑插件
 import IncrementalSync from 'simple-mind-map/src/plugins/IncrementalSync.js'
 import Notation from 'simple-mind-map/src/plugins/notation/dist/notation.esm.min.js'
@@ -174,7 +174,7 @@ MindMap.usePlugin(MiniMap)
   .usePlugin(NodeBase64ImageStorage)
   .usePlugin(Notation)
   .usePlugin(IncrementalSync) // 增量同步插件
-  .usePlugin(Cooperate) // 协同插件
+  // .usePlugin(Cooperate) // 协同插件
 
 // 注册主题
 Themes.init(MindMap)
@@ -568,7 +568,7 @@ export default {
         return { ...fullData }
       }
       // 协同编辑
-      this.cooperateEdit()
+      // this.cooperateEdit()
     },
 
     // 加载相关插件
