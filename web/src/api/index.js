@@ -2,6 +2,8 @@ import exampleData from 'simple-mind-map/example/exampleData'
 import { simpleDeepClone } from 'simple-mind-map/src/utils/index'
 import Vue from 'vue'
 import vuexStore from '@/store'
+import Icons from 'simple-mind-map/src/svg/icons'
+import iconConfig from '@/config/icon'
 
 const SIMPLE_MIND_MAP_DATA = 'SIMPLE_MIND_MAP_DATA'
 const SIMPLE_MIND_MAP_CONFIG = 'SIMPLE_MIND_MAP_CONFIG'
@@ -134,4 +136,17 @@ export const getLocalConfig = () => {
     return JSON.parse(config)
   }
   return null
+}
+
+const getExtendIconList = () => {
+  const dynamicIconList = (vuexStore.state && vuexStore.state.dynamicIconList) || []
+  return [...iconConfig, ...dynamicIconList]
+}
+
+export const getNodeIconListIcon = (name) => {
+  return Icons.getNodeIconListIcon(name, getExtendIconList())
+}
+
+export const getNodeIconMap = () => {
+  return Icons.getNodeIconMap(getExtendIconList())
 }

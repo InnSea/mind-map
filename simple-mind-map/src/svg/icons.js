@@ -284,7 +284,6 @@ export const nodeIconList = [
   },
 ]
 
-//  获取nodeIconList icon内容
 const getNodeIconListIcon = (name, extendIconList = []) => {
   let arr = name.split('_')
   const iconList = mergerIconList([...nodeIconList, ...extendIconList])
@@ -304,10 +303,22 @@ const getNodeIconListIcon = (name, extendIconList = []) => {
   }
 }
 
+const getNodeIconMap = (extendIconList = []) => {
+  const list = mergerIconList([...nodeIconList, ...extendIconList])
+  const map = {}
+  list.forEach(item => {
+    item.list.forEach(icon => {
+      map[item.type + '_' + icon.name] = icon.icon
+    })
+  })
+  return map
+}
+
 export default {
   hyperlink,
   note,
   attachment,
   nodeIconList,
-  getNodeIconListIcon
+  getNodeIconListIcon,
+  getNodeIconMap
 }

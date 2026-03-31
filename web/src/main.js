@@ -8,7 +8,7 @@ import '@/assets/icon-font/iconfont.css'
 import 'viewerjs/dist/viewer.css'
 import VueViewer from 'v-viewer'
 import i18n from './i18n'
-import { getLang } from '@/api'
+import { getLang, getNodeIconListIcon, getNodeIconMap } from '@/api'
 import MessagePlugin from '@/plugins/msgPlugin'
 import externalEnvironmentMixin from './mixin/externalEnvironment.js'
 
@@ -38,6 +38,8 @@ const initApp = () => {
 if (window.takeOverApp) {
   window.initApp = initApp
   window.$bus = bus
+  window.getNodeIconListIcon = getNodeIconListIcon
+  window.getNodeIconMap = getNodeIconMap
 } else {
   initApp()
 }

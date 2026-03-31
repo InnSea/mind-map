@@ -12,7 +12,6 @@
         ></el-tab-pane>
       </el-tabs>
       <div class="boxContent">
-        <!-- 图标 -->
         <div class="iconBox" v-if="activeName === 'icon'">
           <div class="item" v-for="item in nodeIconList" :key="item.name">
             <div class="title">{{ item.name }}</div>
@@ -30,7 +29,6 @@
             </div>
           </div>
         </div>
-        <!-- 贴纸 -->
         <div class="imageBox" v-if="activeName === 'image'">
           <div class="item" v-for="item in nodeImageList" :key="item.name">
             <div class="title">{{ item.name }}</div>
