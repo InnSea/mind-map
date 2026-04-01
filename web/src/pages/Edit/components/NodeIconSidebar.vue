@@ -139,14 +139,17 @@ export default {
         if (index !== -1) {
           iconList.splice(index, 1)
         } else {
-          let typeIndex = iconList.findIndex(item => {
-            return item.split('_')[0] === type
-          })
-          // 替换icon
-          if (typeIndex !== -1) {
-            iconList.splice(typeIndex, 1, key)
+          const isBuiltInType = nodeIconList.some(item => item.type === type)
+          if (isBuiltInType) {
+            let typeIndex = iconList.findIndex(item => {
+              return item.split('_')[0] === type
+            })
+            if (typeIndex !== -1) {
+              iconList.splice(typeIndex, 1, key)
+            } else {
+              iconList.push(key)
+            }
           } else {
-            // 增加icon
             iconList.push(key)
           }
         }

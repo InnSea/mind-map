@@ -45,7 +45,7 @@ export default {
   },
   setting: {
     title: '设置',
-    openPerformance: '开启性能模式(Beta)',
+    openPerformance: '开启性能模式',
     enableFreeDrag: '是否开启节点自由拖拽',
     isEnableNodeRichText: '是否开启节点富文本编辑',
     mousewheelAction: '鼠标滚轮行为',

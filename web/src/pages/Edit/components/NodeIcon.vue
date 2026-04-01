@@ -81,14 +81,17 @@ export default {
       if (index !== -1) {
         this.iconList.splice(index, 1)
       } else {
-        let typeIndex = this.iconList.findIndex(item => {
-          return item.split('_')[0] === type
-        })
-        // 替换icon
-        if (typeIndex !== -1) {
-          this.iconList.splice(typeIndex, 1, key)
+        const isBuiltInType = _nodeIconList.some(item => item.type === type)
+        if (isBuiltInType) {
+          let typeIndex = this.iconList.findIndex(item => {
+            return item.split('_')[0] === type
+          })
+          if (typeIndex !== -1) {
+            this.iconList.splice(typeIndex, 1, key)
+          } else {
+            this.iconList.push(key)
+          }
         } else {
-          // 增加icon
           this.iconList.push(key)
         }
       }

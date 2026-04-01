@@ -144,15 +144,17 @@ export default {
       if (index !== -1) {
         this.nodeIconList.splice(index, 1)
       } else {
-        let typeIndex = this.nodeIconList.findIndex(item => {
-          return item.split('_')[0] === this.iconType
-        })
-        // 替换icon
-        if (typeIndex !== -1) {
-          this.nodeIconList.splice(typeIndex, 1, key)
+        const isBuiltInType = _nodeIconList.some(item => item.type === this.iconType)
+        let targetIndex
+        if (isBuiltInType) {
+          targetIndex = this.nodeIconList.findIndex(item => item.split('_')[0] === this.iconType)
+        } else {
+          targetIndex = this.nodeIconList.findIndex(item => item === this.iconType + '_' + this.iconName)
+        }
+        if (targetIndex !== -1) {
+          this.nodeIconList.splice(targetIndex, 1, key)
           this.iconName = name
         } else {
-          // 增加icon
           this.nodeIconList.push(key)
         }
       }
