@@ -109,7 +109,9 @@ class Ai {
   }
 
   stop() {
-    this.controller.abort()
+    if (this.controller) {
+      this.controller.abort()
+    }
     this.controller = new AbortController()
   }
 }

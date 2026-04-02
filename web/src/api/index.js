@@ -56,7 +56,6 @@ export const storeData = data => {
       window.takeOverAppMethods.saveMindMapData(originData)
       return
     }
-    console.log(originData);
     Vue.prototype.$bus.$emit('write_local_file', originData)
     if (vuexStore.state.isHandleLocalFile) {
       return

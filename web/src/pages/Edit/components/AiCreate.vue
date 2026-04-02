@@ -253,7 +253,10 @@ export default {
       })
       this.aiInstance.init('huoshan', this.aiConfig)
       this.mindMap.renderer.setRootNodeCenter()
-      this.mindMap.setData(null)
+      this.mindMap.setData({
+        data: { text: '', expand: true, uid: createUid() },
+        children: []
+      })
       this.aiInstance.request(
         {
           messages: [
@@ -302,9 +305,10 @@ export default {
 
     // 停止生成
     stopCreate() {
-      this.aiInstance.stop()
-      this.isAiCreating = false
-      this.aiCreatingMaskVisible = false
+      if (this.aiInstance) {
+        this.aiInstance.stop()
+      }
+      this.resetOnAiCreatingStop()
       this.$message.success(this.$t('ai.stoppedGenerating'))
     },
 
@@ -375,8 +379,10 @@ export default {
 
     // 给AI生成的数据添加uid
     addUid(data) {
+      if (!data) return
       const checkRepeatUidMap = {}
       const walk = (node, pUid = '') => {
+        if (!node) return
         if (!node.data) {
           node.data = {}
         }
