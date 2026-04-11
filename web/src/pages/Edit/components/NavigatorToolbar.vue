@@ -3,7 +3,7 @@
     <div class="item">
       <el-select
         v-model="lang"
-        size="small"
+        size="mini"
         style="width: 100px"
         @change="onLangChange"
       >

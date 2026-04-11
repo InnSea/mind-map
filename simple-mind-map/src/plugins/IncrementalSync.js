@@ -189,48 +189,18 @@ class IncrementalSync {
       }
     })
 
-    // 过滤展开/收起操作产生的子孙节点虚假 update
-    let filteredOps = ops
-    if (expandChangedUids.length > 0) {
-      // 一次遍历收集所有展开/收起节点的子孙 uid
-      const expandChangedSet = new Set(expandChangedUids)
-      const descendantSet = new Set()
-      const stack = [...expandChangedUids]
-      while (stack.length > 0) {
-        const cur = stack.pop()
-        const node = newData[cur]
-        if (!node || !node.children) continue
-        for (let i = 0; i < node.children.length; i++) {
-          const childUid = node.children[i]
-          if (!descendantSet.has(childUid) && !expandChangedSet.has(childUid)) {
-            descendantSet.add(childUid)
-            stack.push(childUid)
-          }
-        }
-      }
-      if (descendantSet.size > 0) {
-        filteredOps = ops.filter(op => {
-          // 只过滤子孙节点的非 isExpandChange 的 update
-          if (
-            op.action === 'update' &&
-            !op.isExpandChange &&
-            descendantSet.has(op.uid)
-          ) {
-            // 剥离渲染副作用字段后判断是否有真实业务变化
-            const oldNode = oldData[op.uid]
-            const newNode = newData[op.uid]
-            const oldClean = this._stripRenderFields(oldNode.data)
-            const newClean = this._stripRenderFields(newNode.data)
-            return (
-              !isSameObject(oldClean, newClean) ||
-              !isSameObject(oldNode.children, newNode.children) ||
-              oldNode.isRoot !== newNode.isRoot
-            )
-          }
-          return true
-        })
-      }
-    }
+    let filteredOps = ops.filter(op => {
+      if (op.action !== 'update' || op.isExpandChange) return true
+      const oldNode = oldData[op.uid]
+      const newNode = newData[op.uid]
+      const oldClean = this._stripRenderFields(oldNode.data)
+      const newClean = this._stripRenderFields(newNode.data)
+      return (
+        !isSameObject(oldClean, newClean) ||
+        !isSameObject(oldNode.children, newNode.children) ||
+        oldNode.isRoot !== newNode.isRoot
+      )
+    })
 
     if (filteredOps.length > 0) {
       this.mindMap.emit('incremental_sync_ops', filteredOps)

@@ -1289,6 +1289,9 @@ export const handleInputPasteText = (e, text) => {
     }
   */
 export const transformTreeDataToObject = data => {
+  if (data == null || typeof data !== 'object' || !data.data) {
+    return {}
+  }
   const res = {}
   const walk = (root, parent) => {
     const uid = root.data.uid

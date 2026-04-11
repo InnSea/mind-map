@@ -779,7 +779,7 @@ class Drag extends Base {
       checkList = checkList.reverse()
     }
     let oneFourthHeight = nodeRect.originHeight / 4
-    let { prevBrotherOffset, nextBrotherOffset } =
+    let { prevBrotherOffset, nextBrotherOffset, prevBrother, nextBrother } =
       this.getNodeDistanceToSiblingNode(checkList, node, nodeRect, 'v')
     if (nodeRect.left <= mouseMoveX && nodeRect.right >= mouseMoveX) {
       // 检测兄弟节点位置
@@ -790,15 +790,21 @@ class Drag extends Base {
         !node.isRoot
       ) {
         let checkIsPrevNode =
-          nextBrotherOffset > 0 // 距离下一个兄弟节点的距离大于0
-            ? mouseMoveY > nodeRect.bottom &&
-              mouseMoveY <= nodeRect.bottom + nextBrotherOffset // 那么在当前节点外底部判断
+          nextBrotherOffset > 0
+            ? (mouseMoveY > nodeRect.bottom &&
+                mouseMoveY <= nodeRect.bottom + nextBrotherOffset) ||
+              (!nextBrother &&
+                mouseMoveY >= nodeRect.bottom - oneFourthHeight &&
+                mouseMoveY <= nodeRect.bottom)
             : mouseMoveY >= nodeRect.bottom - oneFourthHeight &&
-              mouseMoveY <= nodeRect.bottom // 否则在当前节点内底部1/4区间判断
+              mouseMoveY <= nodeRect.bottom
         let checkIsNextNode =
-          prevBrotherOffset > 0 // 距离上一个兄弟节点的距离大于0
-            ? mouseMoveY < nodeRect.top &&
-              mouseMoveY >= nodeRect.top - prevBrotherOffset // 那么在当前节点外底部判断
+          prevBrotherOffset > 0
+            ? (mouseMoveY < nodeRect.top &&
+                mouseMoveY >= nodeRect.top - prevBrotherOffset) ||
+              (!prevBrother &&
+                mouseMoveY >= nodeRect.top &&
+                mouseMoveY <= nodeRect.top + oneFourthHeight)
             : mouseMoveY >= nodeRect.top &&
               mouseMoveY <= nodeRect.top + oneFourthHeight
 
@@ -898,6 +904,8 @@ class Drag extends Base {
         dir: 'v',
         prevBrotherOffset,
         nextBrotherOffset,
+        hasPrevBrother: !!prevBrother,
+        hasNextBrother: !!nextBrother,
         size: oneFourthHeight,
         pos: mouseMoveY,
         nodeRect
@@ -921,7 +929,7 @@ class Drag extends Base {
     let mouseMoveY = this.mouseMoveY
     let nodeRect = this.getNodeRect(node)
     let oneFourthWidth = nodeRect.originWidth / 4
-    let { prevBrotherOffset, nextBrotherOffset } =
+    let { prevBrotherOffset, nextBrotherOffset, prevBrother, nextBrother } =
       this.getNodeDistanceToSiblingNode(checkList, node, nodeRect, 'h')
     if (nodeRect.top <= mouseMoveY && nodeRect.bottom >= mouseMoveY) {
       // 检测兄弟节点位置
@@ -932,15 +940,21 @@ class Drag extends Base {
         !node.isRoot
       ) {
         let checkIsPrevNode =
-          nextBrotherOffset > 0 // 距离下一个兄弟节点的距离大于0
-            ? mouseMoveX < nodeRect.right + nextBrotherOffset &&
-              mouseMoveX >= nodeRect.right // 那么在当前节点外底部判断
+          nextBrotherOffset > 0
+            ? (mouseMoveX < nodeRect.right + nextBrotherOffset &&
+                mouseMoveX >= nodeRect.right) ||
+              (!nextBrother &&
+                mouseMoveX <= nodeRect.right &&
+                mouseMoveX >= nodeRect.right - oneFourthWidth)
             : mouseMoveX <= nodeRect.right &&
-              mouseMoveX >= nodeRect.right - oneFourthWidth // 否则在当前节点内底部1/4区间判断
+              mouseMoveX >= nodeRect.right - oneFourthWidth
         let checkIsNextNode =
-          prevBrotherOffset > 0 // 距离上一个兄弟节点的距离大于0
-            ? mouseMoveX > nodeRect.left - prevBrotherOffset &&
-              mouseMoveX <= nodeRect.left // 那么在当前节点外底部判断
+          prevBrotherOffset > 0
+            ? (mouseMoveX > nodeRect.left - prevBrotherOffset &&
+                mouseMoveX <= nodeRect.left) ||
+              (!prevBrother &&
+                mouseMoveX <= nodeRect.left + oneFourthWidth &&
+                mouseMoveX >= nodeRect.left)
             : mouseMoveX <= nodeRect.left + oneFourthWidth &&
               mouseMoveX >= nodeRect.left
         const { scaleX } = this.drawTransform
@@ -1008,6 +1022,8 @@ class Drag extends Base {
         dir: 'h',
         prevBrotherOffset,
         nextBrotherOffset,
+        hasPrevBrother: !!prevBrother,
+        hasNextBrother: !!nextBrother,
         size: oneFourthWidth,
         pos: mouseMoveX,
         nodeRect
@@ -1124,6 +1140,8 @@ class Drag extends Base {
     dir,
     prevBrotherOffset,
     nextBrotherOffset,
+    hasPrevBrother,
+    hasNextBrother,
     size,
     pos,
     nodeRect
@@ -1133,8 +1151,12 @@ class Drag extends Base {
     let dir2 = dir === 'v' ? BOTTOM : RIGHT
     if (!this.overlapNode && !this.prevNode && !this.nextNode) {
       if (
-        nodeRect[dir1] + (prevBrotherOffset > 0 ? 0 : size) <= pos &&
-        nodeRect[dir2] - (nextBrotherOffset > 0 ? 0 : size) >= pos
+        nodeRect[dir1] +
+          (prevBrotherOffset > 0 && hasPrevBrother ? 0 : size) <=
+          pos &&
+        nodeRect[dir2] -
+          (nextBrotherOffset > 0 && hasNextBrother ? 0 : size) >=
+          pos
       ) {
         this.overlapNode = node
       }
