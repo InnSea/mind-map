@@ -77,7 +77,6 @@ class IncrementalSync {
     if (!oldData) return
 
     const ops = []
-    const expandChangedUids = []
     const createdUids = new Set()
     const newKeys = Object.keys(newData)
     const oldKeys = Object.keys(oldData)
@@ -89,18 +88,7 @@ class IncrementalSync {
       } else if (!isSameObject(oldData[uid], newData[uid])) {
         const oldNode = oldData[uid]
         const newNode = newData[uid]
-        // 判断是否仅展开/收起变化
-        const isExpandChange =
-          oldNode.data.expand !== newNode.data.expand &&
-          isSameObject(
-            { ...oldNode.data, expand: undefined },
-            { ...newNode.data, expand: undefined }
-          ) &&
-          isSameObject(oldNode.children, newNode.children)
-        if (isExpandChange) {
-          expandChangedUids.push(uid)
-        }
-        ops.push({ action: 'update', uid, flatNode: newNode, oldFlatNode: oldNode, isExpandChange })
+        ops.push({ action: 'update', uid, flatNode: newNode, oldFlatNode: oldNode })
       }
     }
 
@@ -190,11 +178,15 @@ class IncrementalSync {
     })
 
     let filteredOps = ops.filter(op => {
-      if (op.action !== 'update' || op.isExpandChange) return true
+      if (op.action !== 'update') return true
       const oldNode = oldData[op.uid]
       const newNode = newData[op.uid]
       const oldClean = this._stripRenderFields(oldNode.data)
       const newClean = this._stripRenderFields(newNode.data)
+      
+      oldClean.expand = undefined
+      newClean.expand = undefined
+      
       return (
         !isSameObject(oldClean, newClean) ||
         !isSameObject(oldNode.children, newNode.children) ||
@@ -292,7 +284,16 @@ class IncrementalSync {
       } else if (action === 'update') {
         if (!data[uid]) return
         if (flatNode) {
+          // 记录本地当前的 expand 状态
+          const hasLocalExpand = data[uid].data && 'expand' in data[uid].data
+          const localExpand = hasLocalExpand ? data[uid].data.expand : undefined
+
           data[uid] = structuredClone(flatNode)
+
+          // 恢复本地的 expand 状态，避免被远端覆盖
+          if (data[uid].data && hasLocalExpand) {
+            data[uid].data.expand = localExpand
+          }
         }
         changed = true
       } else if (action === 'delete') {
