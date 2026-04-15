@@ -140,7 +140,8 @@ export default {
     aiCreate: 'AI续写',
     modifyNodeLink: '修改节点链接',
     linkToNode: '链接到指定节点',
-    removeNodeLink: '删除节点链接'
+    removeNodeLink: '删除节点链接',
+    transferToBug: '转禅道bug'
   },
   count: {
     words: '字数',

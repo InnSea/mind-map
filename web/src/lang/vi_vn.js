@@ -145,7 +145,8 @@ export default {
     aiCreate: 'AI Tiếp tục',
     modifyNodeLink: 'Sửa liên kết nút',
     linkToNode: 'Liên kết đến nút',
-    removeNodeLink: 'Xóa liên kết nút'
+    removeNodeLink: 'Xóa liên kết nút',
+    transferToBug: 'Chuyển sang zentao bug'
   },
   count: {
     words: 'Từ',

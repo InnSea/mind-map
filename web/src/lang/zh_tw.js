@@ -141,7 +141,8 @@ export default {
     aiCreate: 'AI續寫',
     modifyNodeLink: '修改節點鏈接',
     linkToNode: '鏈接到指定節點',
-    removeNodeLink: '刪除節點鏈接'
+    removeNodeLink: '刪除節點鏈接',
+    transferToBug: '轉禅道bug'
   },
   count: {
     words: '字數',

@@ -157,9 +157,13 @@
       <div class="item" @click="exec('EXPORT_CUR_NODE_TO_PNG')">
         <span class="name">{{ $t('contextmenu.exportNodeToPng') }}</span>
       </div>
+      <div class="splitLine"></div>
+      <div class="item" @click="transferToBug">
+        <span class="name">{{ $t('contextmenu.transferToBug') }}</span>
+      </div>
       <div class="splitLine" v-if="enableAi"></div>
       <div class="item" @click="aiCreate" v-if="enableAi">
-        <span class="name ai-gradient">{{ $t('contextmenu.aiCreate') }}</span>
+        <span class="name ai-gradient">{{ $t('contextmenu.aiCreate') }}✨</span>
       </div>
     </template>
     <template v-if="type === 'svg'">
@@ -625,6 +629,34 @@ export default {
     // AI续写
     aiCreate() {
       this.$bus.$emit('ai_create_part', this.node)
+      this.hide()
+    },
+
+    // 转bug，对外抛出事件
+    transferToBug() {
+      // 提取节点核心信息
+      const nodeData = this.node ? this.node.getData() : null
+      const nodeUid = this.node ? this.node.uid : null
+      const payload = {
+        uid: nodeUid,
+        data: nodeData,
+        node: this.node
+      }
+      
+      this.$bus.$emit('transfer_to_bug', payload)
+      
+      // 考虑到跨域或直接 iframe postMessage 的情况，也通过 postMessage 向父窗口通信
+      // if (window.parent && window.parent !== window) {
+      //   window.parent.postMessage({
+      //     type: 'transfer_to_bug',
+      //     payload: {
+      //       uid: nodeUid,
+      //       data: nodeData
+      //       // 注意：postMessage 不能序列化含有循环引用的完整 Vue/DOM 对象，所以只传 data 和 uid
+      //     }
+      //   }, '*')
+      // }
+      
       this.hide()
     }
   }
