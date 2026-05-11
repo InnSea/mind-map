@@ -5,12 +5,9 @@ import {
   transformObjectToTreeData
 } from '../utils/index'
 
-// 仅包裹用的 <span> 标签（RichText 插件格式化产物），diff 前归一化以避免虚假变更
-const SPAN_WRAPPER_RE = /<span>(.*?)<\/span>/g
-
 class IncrementalSync {
-  // 渲染过程产生的临时标记字段，不属于业务数据（Set 比数组 includes 更快）
-  static _renderSideEffectFields = new Set(['needUpdate', 'resetRichText'])
+  // 渲染过程产生的临时标记字段，不属于业务数据
+  static _renderSideEffectFields = ['needUpdate', 'resetRichText']
 
   constructor(opt) {
     this.opt = opt
@@ -75,64 +72,41 @@ class IncrementalSync {
   onDataChange(data) {
     const newData = transformTreeDataToObject(data)
     const oldData = this.currentData
-
-    if (!oldData) {
-      this.currentData = newData
-      return
-    }
-
-    const newKeys = Object.keys(newData)
-    const oldKeys = Object.keys(oldData)
-
-    // 快速短路：节点数一致且每个节点都未变化，直接退出，避免后续 O(N) 构建与 diff
-    if (newKeys.length === oldKeys.length) {
-      let allSame = true
-      for (let i = 0; i < newKeys.length; i++) {
-        const uid = newKeys[i]
-        if (!oldData[uid] || !isSameObject(oldData[uid], newData[uid])) {
-          allSame = false
-          break
-        }
-      }
-      if (allSame) return
-    }
-
     this.currentData = newData
+
+    if (!oldData) return
 
     const ops = []
     const createdUids = new Set()
+    const newKeys = Object.keys(newData)
+    const oldKeys = Object.keys(oldData)
 
     for (let i = 0; i < newKeys.length; i++) {
       const uid = newKeys[i]
       if (!oldData[uid]) {
         createdUids.add(uid)
-      } else if (!this._isNodeChangedForSync(oldData[uid], newData[uid])) {
-        // 业务数据未变化（含 children/isRoot/strip 后的 data），跳过该节点
-        continue
-      } else {
-        ops.push({
-          action: 'update',
-          uid,
-          flatNode: newData[uid],
-          oldFlatNode: oldData[uid]
-        })
+      } else if (!isSameObject(oldData[uid], newData[uid])) {
+        const oldNode = oldData[uid]
+        const newNode = newData[uid]
+        ops.push({ action: 'update', uid, flatNode: newNode, oldFlatNode: oldNode })
       }
     }
 
-    // newParentMap 仅在存在新增节点时才构建，避免无 create 的常见 update 场景多走一遍 O(N)
-    if (createdUids.size > 0) {
-      const newParentMap = {}
-      for (let i = 0; i < newKeys.length; i++) {
-        const children = newData[newKeys[i]].children
-        if (!children || children.length === 0) continue
-        for (let j = 0; j < children.length; j++) {
-          newParentMap[children[j]] = newKeys[i]
+    // 构建新数据的 parentMap，用于判断 create 节点的父子关系
+    const newParentMap = {}
+    for (let i = 0; i < newKeys.length; i++) {
+      const node = newData[newKeys[i]]
+      if (node.children) {
+        for (let j = 0; j < node.children.length; j++) {
+          newParentMap[node.children[j]] = newKeys[i]
         }
       }
-      // 只发送顶层 create 节点，并收集整棵子树数据
-      createdUids.forEach(uid => {
-        const parentUid = newParentMap[uid] || null
-        if (parentUid && createdUids.has(parentUid)) return
+    }
+
+    // 只发送顶层 create 节点，并收集整棵子树数据
+    createdUids.forEach(uid => {
+      const parentUid = newParentMap[uid] || null
+      if (!parentUid || !createdUids.has(parentUid)) {
         const createdNodes = {}
         const stack = [uid]
         while (stack.length > 0) {
@@ -155,29 +129,30 @@ class IncrementalSync {
           flatNode: newData[uid],
           createdNodes
         })
-      })
+      }
+    })
+
+    const parentMap = {}
+    for (let i = 0; i < oldKeys.length; i++) {
+      const node = oldData[oldKeys[i]]
+      if (node.children) {
+        for (let j = 0; j < node.children.length; j++) {
+          parentMap[node.children[j]] = oldKeys[i]
+        }
+      }
     }
 
-    // 先快速判断是否有 delete，没有就连 parentMap 都不需要构建
+    // 收集所有被删除的uid
     const deletedSet = new Set()
     for (let i = 0; i < oldKeys.length; i++) {
       if (!newData[oldKeys[i]]) {
         deletedSet.add(oldKeys[i])
       }
     }
-    if (deletedSet.size > 0) {
-      const parentMap = {}
-      for (let i = 0; i < oldKeys.length; i++) {
-        const children = oldData[oldKeys[i]].children
-        if (!children || children.length === 0) continue
-        for (let j = 0; j < children.length; j++) {
-          parentMap[children[j]] = oldKeys[i]
-        }
-      }
-      // 只发送顶层删除节点
-      deletedSet.forEach(uid => {
-        const parentUid = parentMap[uid] || null
-        if (parentUid && deletedSet.has(parentUid)) return
+    // 只发送顶层删除节点
+    deletedSet.forEach(uid => {
+      const parentUid = parentMap[uid] || null
+      if (!parentUid || !deletedSet.has(parentUid)) {
         // 收集被删子树的所有节点数据
         const deletedNodes = {}
         const stack = [uid]
@@ -199,36 +174,29 @@ class IncrementalSync {
           flatNode: oldData[uid],
           deletedNodes
         })
-      })
+      }
+    })
+
+    let filteredOps = ops.filter(op => {
+      if (op.action !== 'update') return true
+      const oldNode = oldData[op.uid]
+      const newNode = newData[op.uid]
+      const oldClean = this._stripRenderFields(oldNode.data)
+      const newClean = this._stripRenderFields(newNode.data)
+      
+      oldClean.expand = undefined
+      newClean.expand = undefined
+      
+      return (
+        !isSameObject(oldClean, newClean) ||
+        !isSameObject(oldNode.children, newNode.children) ||
+        oldNode.isRoot !== newNode.isRoot
+      )
+    })
+
+    if (filteredOps.length > 0) {
+      this.mindMap.emit('incremental_sync_ops', filteredOps)
     }
-
-    if (ops.length === 0) return
-
-    // 业务侧钩子：允许在 emit 前观察 / 过滤 / 转换 ops，未返回数组则沿用原 ops
-    const beforeIncrementalSync = this.mindMap.opt.beforeIncrementalSync
-    let finalOps = ops
-    if (typeof beforeIncrementalSync === 'function') {
-      const ret = beforeIncrementalSync(ops, { oldData, newData })
-      if (Array.isArray(ret)) finalOps = ret
-    }
-
-    if (finalOps.length > 0) {
-      this.mindMap.emit('incremental_sync_ops', finalOps)
-    }
-  }
-
-  /**
-   * 判断节点是否发生了"需要同步"的业务变化
-   * 剥离渲染副作用字段、忽略 expand，避免 RichText 格式化、展开折叠等触发虚假 diff
-   */
-  _isNodeChangedForSync(oldNode, newNode) {
-    if (oldNode.isRoot !== newNode.isRoot) return true
-    if (!isSameObject(oldNode.children, newNode.children)) return true
-    const oldClean = this._stripRenderFields(oldNode.data)
-    const newClean = this._stripRenderFields(newNode.data)
-    oldClean.expand = undefined
-    newClean.expand = undefined
-    return !isSameObject(oldClean, newClean)
   }
 
   /**
@@ -294,27 +262,8 @@ class IncrementalSync {
     const allOps = this._deduplicateOps(rawOps)
     if (allOps.length === 0) return
 
-    // 浅克隆 flat map：每个节点仍指向 currentData 原始引用，修改某节点前再单独克隆该节点
-    // 把单次 apply 的克隆成本从 O(节点总数 * 节点大小) 降到 O(受影响节点数 * 节点大小)
-    const data = { ...this.currentData }
-    const originalRef = this.currentData
+    const data = structuredClone(this.currentData)
     let changed = false
-
-    // 若某个 uid 仍指向原 currentData 中的引用，则就地克隆一份再返回；保证后续修改不污染原数据
-    const ensureOwned = uid => {
-      const node = data[uid]
-      if (!node) return null
-      if (node === originalRef[uid]) {
-        const cloned = {
-          isRoot: node.isRoot,
-          data: node.data,
-          children: node.children ? node.children.slice() : []
-        }
-        data[uid] = cloned
-        return cloned
-      }
-      return node
-    }
 
     allOps.forEach(op => {
       const { action, uid, flatNode } = op
@@ -336,9 +285,8 @@ class IncrementalSync {
         if (!data[uid]) return
         if (flatNode) {
           // 记录本地当前的 expand 状态
-          const localNode = data[uid]
-          const hasLocalExpand = localNode.data && 'expand' in localNode.data
-          const localExpand = hasLocalExpand ? localNode.data.expand : undefined
+          const hasLocalExpand = data[uid].data && 'expand' in data[uid].data
+          const localExpand = hasLocalExpand ? data[uid].data.expand : undefined
 
           data[uid] = structuredClone(flatNode)
 
@@ -350,25 +298,11 @@ class IncrementalSync {
         changed = true
       } else if (action === 'delete') {
         if (!data[uid]) return
-        // 优先用 op 中携带的 parentUid 直接定位父节点（O(1)），fallback 到全表扫描兼容老消息
-        const opParentUid = op.parentUid
-        if (
-          opParentUid &&
-          data[opParentUid] &&
-          Array.isArray(data[opParentUid].children) &&
-          data[opParentUid].children.indexOf(uid) !== -1
-        ) {
-          const parent = ensureOwned(opParentUid)
-          const idx = parent.children.indexOf(uid)
-          if (idx !== -1) parent.children.splice(idx, 1)
-        } else {
-          const keys = Object.keys(data)
-          for (let i = 0; i < keys.length; i++) {
-            const node = data[keys[i]]
-            if (node.children && node.children.indexOf(uid) !== -1) {
-              const parent = ensureOwned(keys[i])
-              parent.children = parent.children.filter(id => id !== uid)
-            }
+        const keys = Object.keys(data)
+        for (let i = 0; i < keys.length; i++) {
+          const node = data[keys[i]]
+          if (node.children && node.children.includes(uid)) {
+            node.children = node.children.filter(id => id !== uid)
           }
         }
         this._deleteFromFlatData(data, uid)
@@ -415,15 +349,14 @@ class IncrementalSync {
   _stripRenderFields(data) {
     const res = {}
     const skip = IncrementalSync._renderSideEffectFields
-    const keys = Object.keys(data)
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i]
-      if (!skip.has(key)) res[key] = data[key]
-    }
-    // 归一化富文本：仅在确实含包裹用 <span> 时才执行替换，避免每次 update 走一遍全局正则
-    const text = res.text
-    if (typeof text === 'string' && text.indexOf('<span>') !== -1) {
-      res.text = text.replace(SPAN_WRAPPER_RE, '$1')
+    Object.keys(data).forEach(key => {
+      if (!skip.includes(key)) {
+        res[key] = data[key]
+      }
+    })
+    // 归一化富文本：去掉仅包裹用的 <span> 标签
+    if (typeof res.text === 'string') {
+      res.text = res.text.replace(/<span>(.*?)<\/span>/g, '$1')
     }
     return res
   }
