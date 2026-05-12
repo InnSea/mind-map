@@ -231,6 +231,10 @@ export default {
     title: 'Hình ảnh',
     imgTitle: 'Tiêu đề'
   },
+  nodeVideo: {
+    title: 'Video',
+    videoTitle: 'Tiêu đề'
+  },
   nodeNote: {
     title: 'Ghi chú'
   },
@@ -316,6 +320,7 @@ export default {
     insertChildNode: 'Nút con',
     deleteNode: 'Xóa nút',
     image: 'Hình ảnh',
+    video: 'Video',
     icon: 'Biểu tượng',
     link: 'Liên kết',
     note: 'Ghi chú',

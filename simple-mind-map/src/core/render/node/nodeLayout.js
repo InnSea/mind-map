@@ -117,6 +117,12 @@ function getNodeRect() {
     textContentHeight = Math.max(textContentHeight, this._noteData.height)
     spaceCount++
   }
+  // 视频
+  if (this._videoData) {
+    textContentWidth += this._videoData.width
+    textContentHeight = Math.max(textContentHeight, this._videoData.height)
+    spaceCount++
+  }
   // 附件
   if (this._attachmentData) {
     textContentWidth += this._attachmentData.width
@@ -423,6 +429,14 @@ function layout() {
       .y((textContentHeight - this._noteData.height) / 2)
     textContentNested.add(this._noteData.node)
     textContentOffsetX += this._noteData.width + textContentMargin
+  }
+  // 视频
+  if (this._videoData) {
+    this._videoData.node
+      .x(textContentOffsetX)
+      .y((textContentHeight - this._videoData.height) / 2)
+    textContentNested.add(this._videoData.node)
+    textContentOffsetX += this._videoData.width + textContentMargin
   }
   // 附件
   if (this._attachmentData) {

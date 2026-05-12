@@ -80,6 +80,17 @@
         <span class="text">{{ $t('toolbar.image') }}</span>
       </div>
       <div
+        v-if="item === 'video'"
+        class="toolbarBtn"
+        :class="{
+          disabled: activeNodes.length <= 0
+        }"
+        @click="$bus.$emit('showNodeVideo')"
+      >
+        <span class="icon iconfont iconfujian"></span>
+        <span class="text">{{ $t('toolbar.video') }}</span>
+      </div>
+      <div
         v-if="item === 'icon'"
         class="toolbarBtn"
         :class="{

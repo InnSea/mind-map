@@ -528,6 +528,42 @@ function createAttachmentNode() {
   }
 }
 
+//  创建视频节点
+function createVideoNode() {
+  const videoUrl = this.getData('video')
+  if (!videoUrl) {
+    return null
+  }
+  const iconSize = this.getNodeIconSize('videoIcon')
+  const { icon, style } = this.mindMap.opt.videoIcon || {
+    icon: '',
+    style: { color: '#409eff', size: 20 }
+  }
+  const node = new SVG()
+    .attr('cursor', 'pointer')
+    .addClass('smm-node-video')
+    .size(iconSize, iconSize)
+  const videoTitle = this.getData('videoTitle') || '视频'
+  node.add(SVG(`<title>${videoTitle}</title>`))
+  // 透明的层，用来作为鼠标区域
+  node.add(new Rect().size(iconSize, iconSize).fill({ color: 'transparent' }))
+  // 视频图标 - 使用圆形播放按钮
+  const videoIconSvg = icon || `<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="10" cy="10" r="9" fill="${style.color || '#409eff'}" stroke="#fff" stroke-width="1"/>
+    <path d="M8 6 L8 14 L14 10 Z" fill="#fff"/>
+  </svg>`
+  const iconNode = SVG(videoIconSvg).size(iconSize, iconSize)
+  node.add(iconNode)
+  node.on('click', e => {
+    this.mindMap.emit('node_video_click', this, e, node)
+  })
+  return {
+    node,
+    width: iconSize,
+    height: iconSize
+  }
+}
+
 // 获取节点图标大小
 function getNodeIconSize(prop) {
   const { style } = this.mindMap.opt[prop]
@@ -587,6 +623,7 @@ export default {
   createTagNode,
   createNoteNode,
   createAttachmentNode,
+  createVideoNode,
   getNoteContentPosition,
   getNodeIconSize,
   measureCustomNodeContentSize,

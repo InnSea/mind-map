@@ -227,6 +227,10 @@ export default {
     title: '圖片',
     imgTitle: '圖片標題'
   },
+  nodeVideo: {
+    title: '影片',
+    videoTitle: '影片標題'
+  },
   nodeNote: {
     title: '備註'
   },
@@ -312,6 +316,7 @@ export default {
     insertChildNode: '子節點',
     deleteNode: '刪除節點',
     image: '圖片',
+    video: '影片',
     icon: '圖示',
     link: '超連結',
     note: '備註',

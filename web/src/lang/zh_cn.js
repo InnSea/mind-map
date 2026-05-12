@@ -226,6 +226,13 @@ export default {
     title: '图片',
     imgTitle: '图片标题'
   },
+  nodeVideo: {
+    title: '视频',
+    videoTitle: '视频标题',
+    play: '播放',
+    edit: '编辑',
+    delete: '删除'
+  },
   nodeNote: {
     title: '备注'
   },
@@ -311,6 +318,7 @@ export default {
     insertChildNode: '子节点',
     deleteNode: '删除节点',
     image: '图片',
+    video: '视频',
     icon: '图标',
     link: '超链接',
     note: '备注',

@@ -1,33 +1,37 @@
 <template>
   <el-dialog
-    class="nodeImageDialog"
-    :title="$t('nodeImage.title')"
+    class="nodeVideoDialog"
+    :title="$t('nodeVideo.title')"
     :visible.sync="dialogVisible"
     :width="isMobile ? '90%' : '600px'"
     :top="isMobile ? '20px' : '15vh'"
   >
     <div class="title">方式一</div>
-    <ImgUpload
-      ref="ImgUpload"
-      v-model="img"
+    <VideoUpload
+      ref="videoUpload"
+      v-model="video"
       @upload-start="handleUploadStart"
       @upload-end="handleUploadEnd"
       style="margin-bottom: 12px;"
-    ></ImgUpload>
+    ></VideoUpload>
     <div class="title">方式二</div>
     <div class="inputBox">
-      <span class="label">请输入图片地址</span>
+      <span class="label">请输入视频地址</span>
       <el-input
-        v-model="imgUrl"
+        v-model="videoUrl"
         size="mini"
-        placeholder="http://xxx.com/xx.jpg"
+        placeholder="http://xxx.com/xx.mp4"
         @keydown.native.stop
       ></el-input>
     </div>
     <div class="title">可选</div>
     <div class="inputBox">
-      <span class="label">{{ $t('nodeImage.imgTitle') }}</span>
-      <el-input v-model="imgTitle" size="mini" @keydown.native.stop></el-input>
+      <span class="label">{{ $t('nodeVideo.videoTitle') }}</span>
+      <el-input
+        v-model="videoTitle"
+        size="mini"
+        @keydown.native.stop
+      ></el-input>
     </div>
     <span slot="footer" class="dialog-footer">
       <el-button size="mini" @click="cancel" :disabled="buttonLoading">{{ $t('dialog.cancel') }}</el-button>
@@ -39,20 +43,19 @@
 </template>
 
 <script>
-import ImgUpload from '@/components/ImgUpload/index.vue'
-import { getImageSize, isMobile } from 'simple-mind-map/src/utils/index'
+import VideoUpload from '@/components/VideoUpload/index.vue'
+import { isMobile } from 'simple-mind-map/src/utils/index'
 
-// 节点图片内容设置
 export default {
   components: {
-    ImgUpload
+    VideoUpload
   },
   data() {
     return {
       dialogVisible: false,
-      img: '',
-      imgUrl: '',
-      imgTitle: '',
+      video: '',
+      videoUrl: '',
+      videoTitle: '',
       activeNodes: null,
       isMobile: isMobile(),
       loading: false,
@@ -65,33 +68,42 @@ export default {
       return this.isUploading || this.loading
     }
   },
+  watch: {
+    isVideoUploading(val) {
+      // 当视频正在上传时，禁用确定按钮
+      if (val) {
+        this.loading = true
+      } else {
+        this.loading = false
+      }
+    }
+  },
   created() {
     this.$bus.$on('node_active', this.handleNodeActive)
-    this.$bus.$on('showNodeImage', this.handleShowNodeImage)
+    this.$bus.$on('showNodeVideo', this.handleShowNodeVideo)
   },
   beforeDestroy() {
     this.$bus.$off('node_active', this.handleNodeActive)
-    this.$bus.$off('showNodeImage', this.handleShowNodeImage)
+    this.$bus.$off('showNodeVideo', this.handleShowNodeVideo)
   },
   methods: {
     handleNodeActive(...args) {
       this.activeNodes = [...args[1]]
     },
 
-    handleShowNodeImage() {
+    handleShowNodeVideo() {
       this.reset()
       if (this.activeNodes.length > 0) {
-        let firstNode = this.activeNodes[0]
-        let img = firstNode.getImageUrl() || ''
-        if (img) {
-
-          if (/^https?:\/\//.test(img) && !img.includes('/mindmap/')) {
-            this.imgUrl = img
+        const firstNode = this.activeNodes[0]
+        const video = firstNode.getData('video') || ''
+        if (video) {
+          if (/^https?:\/\//.test(video) && !video.includes('/mindmap/')) {
+            this.videoUrl = video
           } else {
-            this.img = img
+            this.video = video
           }
         }
-        this.imgTitle = firstNode.getData('imageTitle') || ''
+        this.videoTitle = firstNode.getData('videoTitle') || ''
       }
       this.dialogVisible = true
     },
@@ -102,9 +114,9 @@ export default {
     },
 
     reset() {
-      this.img = ''
-      this.imgTitle = ''
-      this.imgUrl = ''
+      this.video = ''
+      this.videoTitle = ''
+      this.videoUrl = ''
       this.loading = false
       this.isUploading = false
     },
@@ -120,7 +132,7 @@ export default {
     async confirm() {
       // 如果正在上传，提示用户等待
       if (this.isUploading) {
-        this.$message && this.$message.warning('图片正在上传中，请稍候...')
+        this.$message && this.$message.warning('视频正在上传中，请稍候...')
         return
       }
 
@@ -128,35 +140,30 @@ export default {
 
       try {
         this.loading = true
-        // 删除图片
-        if (!this.img && !this.imgUrl) {
-          this.cancel()
-          this.activeNodes.forEach(node => {
-            node.setImage(null)
-          })
-          return
+        const video = this.video || this.videoUrl
+
+        // 如果输入的是 URL，添加一个短暂的延迟以显示 loading
+        if (this.videoUrl && video) {
+          await new Promise(resolve => setTimeout(resolve, 300))
         }
-        let res = null
-        let img = ''
-        if (this.img) {
-          img = this.img
-          res = await this.$refs.ImgUpload.getSize()
-        } else if (this.imgUrl) {
-          img = this.imgUrl
-          res = await getImageSize(img)
-        }
+
+        const mindMap = this.activeNodes[0] && this.activeNodes[0].mindMap
         this.activeNodes.forEach(node => {
-          node.setImage({
-            url: img || 'none',
-            title: this.imgTitle,
-            width: res.width || 100,
-            height: res.height || 100
+          node.setData({
+            video: video || '',
+            videoTitle: video ? this.videoTitle : ''
           })
+          if (typeof node.reRender === 'function') {
+            node.reRender()
+          }
         })
+        if (mindMap && typeof mindMap.render === 'function') {
+          mindMap.render()
+        }
         this.cancel()
       } catch (error) {
-        console.log(error)
-        this.$message.error('图片设置失败，请重试')
+        console.error('设置视频失败:', error)
+        this.$message && this.$message.error('设置视频失败，请重试')
       } finally {
         this.loading = false
       }
@@ -166,7 +173,7 @@ export default {
 </script>
 
 <style lang="less" scoped>
-.nodeImageDialog {
+.nodeVideoDialog {
   .title {
     font-size: 18px;
     margin-bottom: 12px;

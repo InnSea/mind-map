@@ -210,7 +210,7 @@ class MindMapNode {
   }
 
   //  创建节点的各个内容对象数据
-  // recreateTypes：[] custom、image、icon、text、hyperlink、tag、note、attachment、numbers、prefix、postfix、checkbox
+  // recreateTypes：[] custom、image、icon、text、hyperlink、tag、note、attachment、video、numbers、prefix、postfix、checkbox
   createNodeData(recreateTypes) {
     // 自定义节点内容
     const {
@@ -230,6 +230,7 @@ class MindMapNode {
       'tag',
       'note',
       'attachment',
+      'video',
       'prefix',
       'postfix',
       ...this.mindMap.nodeInnerPrefixList.map(item => {
@@ -273,6 +274,7 @@ class MindMapNode {
     if (createTypes.note) this._noteData = this.createNoteNode()
     if (createTypes.attachment)
       this._attachmentData = this.createAttachmentNode()
+    if (createTypes.video) this._videoData = this.createVideoNode()
     this.mindMap.nodeInnerPrefixList.forEach(item => {
       if (createTypes[item.name]) {
         this[`_${item.name}Data`] = item.createContent(this)

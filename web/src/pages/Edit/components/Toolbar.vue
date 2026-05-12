@@ -123,6 +123,7 @@
       </div>
     </div>
     <NodeImage></NodeImage>
+    <NodeVideo></NodeVideo>
     <NodeHyperlink></NodeHyperlink>
     <NodeIcon></NodeIcon>
     <NodeNote></NodeNote>
@@ -134,6 +135,7 @@
 
 <script>
 import NodeImage from './NodeImage.vue'
+import NodeVideo from './NodeVideo.vue'
 import NodeHyperlink from './NodeHyperlink.vue'
 import NodeIcon from './NodeIcon.vue'
 import NodeNote from './NodeNote.vue'
@@ -157,6 +159,7 @@ const defaultBtnList = [
   'childNode',
   'deleteNode',
   'image',
+  'video',
   'icon',
   'link',
   'note',
@@ -173,6 +176,7 @@ const defaultBtnList = [
 export default {
   components: {
     NodeImage,
+    NodeVideo,
     NodeHyperlink,
     NodeIcon,
     NodeNote,

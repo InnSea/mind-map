@@ -71,22 +71,22 @@ export default {
 
     // 选择图片
     async selectImg(file) {
+      if (!file) return
       this.file = file
-      
+
       try {
-        // 显示加载状态
         this.isUploading = true
-        
-        // 上传到服务器
+        this.$emit('upload-start')
         const imageUrl = await this.uploadToServer(file)
-        
-        // 返回服务器图片 URL
         this.$emit('change', imageUrl)
+        this.$emit('upload-success')
       } catch (error) {
         console.error('图片上传失败:', error)
         this.$message && this.$message.error('图片上传失败，请重试')
+        this.$emit('upload-error', error)
       } finally {
         this.isUploading = false
+        this.$emit('upload-end')
       }
     },
 

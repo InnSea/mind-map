@@ -50,6 +50,7 @@
     <SourceCodeEdit v-if="mindMap" :mindMap="mindMap"></SourceCodeEdit>
     <NodeOuterFrame v-if="mindMap" :mindMap="mindMap"></NodeOuterFrame>
     <NodeTagStyle v-if="mindMap" :mindMap="mindMap"></NodeTagStyle>
+    <NodeVideoStyle v-if="mindMap" :mindMap="mindMap"></NodeVideoStyle>
     <Setting :configData="mindMapConfig" :mindMap="mindMap"></Setting>
     <NodeImgPlacementToolbar
       v-if="mindMap"
@@ -142,6 +143,7 @@ import SourceCodeEdit from './SourceCodeEdit.vue'
 import NodeAttachment from './NodeAttachment.vue'
 import NodeOuterFrame from './NodeOuterFrame.vue'
 import NodeTagStyle from './NodeTagStyle.vue'
+import NodeVideoStyle from './NodeVideoStyle.vue'
 import Setting from './Setting.vue'
 import AssociativeLineStyle from './AssociativeLineStyle.vue'
 import NodeImgPlacementToolbar from './NodeImgPlacementToolbar.vue'
@@ -209,6 +211,7 @@ export default {
     NodeAttachment,
     NodeOuterFrame,
     NodeTagStyle,
+    NodeVideoStyle,
     Setting,
     AssociativeLineStyle,
     NodeImgPlacementToolbar,
@@ -307,6 +310,7 @@ export default {
     this.$bus.$off('node_tree_render_end', this.handleHideLoading)
     this.$bus.$off('showLoading', this.handleShowLoading)
     window.removeEventListener('resize', this.handleResize)
+    this.closeVideoActionMenu()
     this.mindMap.destroy()
   },
   methods: {
@@ -510,6 +514,13 @@ export default {
           } catch (error) {
             console.error('粘贴图片上传失败:', error)
             throw error
+          }
+        },
+        videoIcon: {
+          icon: '',
+          style: {
+            color: '#409eff',
+            size: 20
           }
         }
       })
@@ -801,6 +812,100 @@ export default {
     closeShareTip() {
       this.showShareTip = false
       localStorage.setItem('SHARE_COOPERATE_TIP_CLOSED', '1')
+    },
+
+    openNodeVideo(url) {
+      if (!url) return
+      window.open(url, '_blank')
+    },
+
+    removeNodeVideo(node) {
+      if (!node) return
+      node.setData({
+        video: '',
+        videoTitle: ''
+      })
+      if (typeof node.reRender === 'function') {
+        node.reRender()
+      }
+      if (node.mindMap && typeof node.mindMap.render === 'function') {
+        node.mindMap.render()
+      }
+    },
+
+    showVideoActionMenu(e, node, videoUrl) {
+      this.closeVideoActionMenu()
+      const menu = document.createElement('div')
+      menu.style.cssText = `
+        position: fixed;
+        left: ${e.clientX}px;
+        top: ${e.clientY + 10}px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #fff;
+        border: 1px solid #e4e7ed;
+        border-radius: 16px;
+        padding: 6px 10px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+        white-space: nowrap;
+        z-index: 100000;
+      `
+      const createActionBtn = (text, color) => {
+        const btn = document.createElement('span')
+        btn.innerText = text
+        btn.style.cssText = `
+          font-size: 12px;
+          line-height: 18px;
+          color: ${color};
+          cursor: pointer;
+          user-select: none;
+        `
+        return btn
+      }
+      const playBtn = createActionBtn('播放', '#409eff')
+      const delBtn = createActionBtn('删除', '#f56c6c')
+      playBtn.addEventListener('click', evt => {
+        evt.stopPropagation()
+        this.openNodeVideo(videoUrl)
+        this.closeVideoActionMenu()
+      })
+      delBtn.addEventListener('click', evt => {
+        evt.stopPropagation()
+        this.closeVideoActionMenu()
+        this.$confirm('是否删除该节点视频？', this.$t('edit.tip'), {
+          confirmButtonText: this.$t('edit.yes'),
+          cancelButtonText: this.$t('edit.no'),
+          type: 'warning'
+        })
+          .then(() => {
+            this.removeNodeVideo(node)
+          })
+          .catch(() => {})
+      })
+      menu.appendChild(playBtn)
+      menu.appendChild(delBtn)
+      document.body.appendChild(menu)
+      const onDocMouseDown = evt => {
+        if (menu && !menu.contains(evt.target)) {
+          this.closeVideoActionMenu()
+        }
+      }
+      document.addEventListener('mousedown', onDocMouseDown, true)
+      this.videoActionMenuEl = menu
+      this.videoActionMenuDocHandler = onDocMouseDown
+    },
+
+    closeVideoActionMenu() {
+      if (this.videoActionMenuDocHandler) {
+        document.removeEventListener('mousedown', this.videoActionMenuDocHandler, true)
+        this.videoActionMenuDocHandler = null
+      }
+      if (this.videoActionMenuEl && this.videoActionMenuEl.parentNode) {
+        this.videoActionMenuEl.parentNode.removeChild(this.videoActionMenuEl)
+      }
+      this.videoActionMenuEl = null
     },
 
     // 拖拽文件到页面导入
