@@ -6,8 +6,8 @@ import {
 } from '../utils/index'
 
 class IncrementalSync {
-  // 渲染过程产生的临时标记字段，不属于业务数据
-  static _renderSideEffectFields = ['needUpdate', 'resetRichText']
+  // 渲染过程产生的临时标记字段 + expand（expand 不参与协同同步）
+  static _renderSideEffectFields = ['needUpdate', 'resetRichText', 'expand']
 
   constructor(opt) {
     this.opt = opt
@@ -62,6 +62,11 @@ class IncrementalSync {
     if (renderTree) {
       this.currentData = transformTreeDataToObject(renderTree)
     }
+    // 设置冷却期，防止 RichText 等插件在渲染后立即触发 data_change 导致回环
+    clearTimeout(this._cooldownTimer)
+    this._cooldownTimer = setTimeout(() => {
+      this._cooldownTimer = null
+    }, 200)
   }
 
   /**
@@ -70,6 +75,12 @@ class IncrementalSync {
    * 对比 currentData 找出 diff 并发送
    */
   onDataChange(data) {
+    // 冷却期内不发送 ops，避免 RichText 等插件触发的虚假 diff
+    if (this._cooldownTimer || this._waitingRenderEnd) {
+      this.currentData = transformTreeDataToObject(data)
+      return
+    }
+
     const newData = transformTreeDataToObject(data)
     const oldData = this.currentData
     this.currentData = newData
@@ -85,10 +96,24 @@ class IncrementalSync {
       const uid = newKeys[i]
       if (!oldData[uid]) {
         createdUids.add(uid)
-      } else if (!isSameObject(oldData[uid], newData[uid])) {
+      } else {
+        // 细粒度比较：只比较业务数据，避免 filter 阶段重复比较
         const oldNode = oldData[uid]
         const newNode = newData[uid]
-        ops.push({ action: 'update', uid, flatNode: newNode, oldFlatNode: oldNode })
+
+        // 快速路径：引用相等直接跳过（本地操作只改了少数节点时收益巨大）
+        if (oldNode === newNode) continue
+
+        const oldClean = this._stripRenderFields(oldNode.data)
+        const newClean = this._stripRenderFields(newNode.data)
+
+        const dataChanged = !isSameObject(oldClean, newClean)
+        const childrenChanged = JSON.stringify(oldNode.children) !== JSON.stringify(newNode.children)
+        const isRootChanged = oldNode.isRoot !== newNode.isRoot
+
+        if (dataChanged || childrenChanged || isRootChanged) {
+          ops.push({ action: 'update', uid, flatNode: newNode, oldFlatNode: oldNode })
+        }
       }
     }
 
@@ -177,25 +202,9 @@ class IncrementalSync {
       }
     })
 
-    let filteredOps = ops.filter(op => {
-      if (op.action !== 'update') return true
-      const oldNode = oldData[op.uid]
-      const newNode = newData[op.uid]
-      const oldClean = this._stripRenderFields(oldNode.data)
-      const newClean = this._stripRenderFields(newNode.data)
-      
-      oldClean.expand = undefined
-      newClean.expand = undefined
-      
-      return (
-        !isSameObject(oldClean, newClean) ||
-        !isSameObject(oldNode.children, newNode.children) ||
-        oldNode.isRoot !== newNode.isRoot
-      )
-    })
-
-    if (filteredOps.length > 0) {
-      this.mindMap.emit('incremental_sync_ops', filteredOps)
+    // filter 阶段已经不需要了，因为前面已经做了细粒度比较
+    if (ops.length > 0) {
+      this.mindMap.emit('incremental_sync_ops', ops)
     }
   }
 
@@ -262,15 +271,27 @@ class IncrementalSync {
     const allOps = this._deduplicateOps(rawOps)
     if (allOps.length === 0) return
 
-    const data = structuredClone(this.currentData)
+    // 不再 structuredClone 整个 currentData，只克隆被修改的节点
+    const data = this.currentData
     let changed = false
+
+    // 构建 parentMap，所有 delete 操作共用，避免重复扫描
+    const parentMap = {}
+    const keys = Object.keys(data)
+    for (let i = 0; i < keys.length; i++) {
+      const node = data[keys[i]]
+      if (node.children) {
+        for (let j = 0; j < node.children.length; j++) {
+          parentMap[node.children[j]] = keys[i]
+        }
+      }
+    }
 
     allOps.forEach(op => {
       const { action, uid, flatNode } = op
 
       if (action === 'create') {
         if (data[uid]) return
-        // 如果有 createdNodes，批量创建整棵子树
         const nodes = op.createdNodes || { [uid]: flatNode }
         const nodeUids = Object.keys(nodes)
         for (let i = 0; i < nodeUids.length; i++) {
@@ -280,17 +301,23 @@ class IncrementalSync {
             ? structuredClone(nodes[nUid])
             : { isRoot: false, data: {}, children: [] }
         }
+        // 将新节点挂到父节点的 children 中
+        if (op.parentUid && data[op.parentUid]) {
+          const parentChildren = data[op.parentUid].children
+          if (!parentChildren.includes(uid)) {
+            data[op.parentUid] = structuredClone(data[op.parentUid])
+            data[op.parentUid].children = [...parentChildren, uid]
+          }
+        }
         changed = true
       } else if (action === 'update') {
         if (!data[uid]) return
         if (flatNode) {
-          // 记录本地当前的 expand 状态
           const hasLocalExpand = data[uid].data && 'expand' in data[uid].data
           const localExpand = hasLocalExpand ? data[uid].data.expand : undefined
 
           data[uid] = structuredClone(flatNode)
 
-          // 恢复本地的 expand 状态，避免被远端覆盖
           if (data[uid].data && hasLocalExpand) {
             data[uid].data.expand = localExpand
           }
@@ -298,12 +325,11 @@ class IncrementalSync {
         changed = true
       } else if (action === 'delete') {
         if (!data[uid]) return
-        const keys = Object.keys(data)
-        for (let i = 0; i < keys.length; i++) {
-          const node = data[keys[i]]
-          if (node.children && node.children.includes(uid)) {
-            node.children = node.children.filter(id => id !== uid)
-          }
+        // 使用预构建的 parentMap，避免 O(N) 扫描
+        const parentUid = parentMap[uid]
+        if (parentUid && data[parentUid]) {
+          const node = data[parentUid]
+          data[parentUid] = { ...node, children: node.children.filter(id => id !== uid) }
         }
         this._deleteFromFlatData(data, uid)
         changed = true
@@ -312,18 +338,19 @@ class IncrementalSync {
 
     if (!changed) return
 
+    // transformObjectToTreeData 已经做了 simpleDeepClone，不需要 handleData 再做一次
     const treeData = transformObjectToTreeData(data)
     if (!treeData) return
 
-    // 直接操作底层 API，绕过 updateData 的 addHistory
-    // handleData: 深拷贝 + 确保根节点 expand + 补全 uid
-    const processedData = this.mindMap.handleData(treeData)
-    if (!processedData) return
-    // setData: 设置渲染树
-    this.mindMap.renderer.setData(processedData)
-    // 标记等待渲染完成
+    // handleData 的两个必要操作：确保根节点 expand + 补全 uid
+    if (treeData.data && !treeData.data.expand) {
+      treeData.data.expand = true
+    }
+
+    this.mindMap.renderer.setData(treeData)
+    this.currentData = data
+
     this._waitingRenderEnd = true
-    // render: 异步渲染，完成后触发 node_tree_render_end
     this.mindMap.render()
   }
 
@@ -342,27 +369,42 @@ class IncrementalSync {
     }
   }
 
-  /**
-   * 剥离渲染副作用字段，返回只含业务数据的浅拷贝
-   * 同时将富文本标签归一化，避免 RichText 插件格式化导致的虚假 diff
-   */
   _stripRenderFields(data) {
-    const res = {}
     const skip = IncrementalSync._renderSideEffectFields
-    Object.keys(data).forEach(key => {
-      if (!skip.includes(key)) {
+    const text = data.text
+    const needNormalize = typeof text === 'string' && text.indexOf('<span>') !== -1
+
+    // 快速路径：检查是否有任一 skip 字段
+    let hasSkipField = false
+    for (let i = 0; i < skip.length; i++) {
+      if (skip[i] in data) {
+        hasSkipField = true
+        break
+      }
+    }
+
+    if (!hasSkipField && !needNormalize) {
+      // 没有副作用字段、也不需要归一化，直接返回原对象
+      return data
+    }
+
+    const res = {}
+    const keys = Object.keys(data)
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i]
+      if (skip.indexOf(key) === -1) {
         res[key] = data[key]
       }
-    })
-    // 归一化富文本：去掉仅包裹用的 <span> 标签
-    if (typeof res.text === 'string') {
-      res.text = res.text.replace(/<span>(.*?)<\/span>/g, '$1')
+    }
+    if (needNormalize) {
+      res.text = text.replace(/<span>(.*?)<\/span>/g, '$1')
     }
     return res
   }
 
   beforePluginRemove() {
     clearTimeout(this._applyTimer)
+    clearTimeout(this._cooldownTimer)
     this._opsQueue = []
     this._waitingRenderEnd = false
     this.currentData = null
