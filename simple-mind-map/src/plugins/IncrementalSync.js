@@ -48,7 +48,23 @@ class IncrementalSync {
   }
 
   onSetData(data) {
+    const oldData = this.currentData
     this.currentData = transformTreeDataToObject(simpleDeepClone(data))
+    // 导入整份文件时，触发全量同步：把整棵新树作为一个 create 操作发出
+    if (oldData) {
+      const rootUid = Object.keys(this.currentData).find(
+        uid => this.currentData[uid].isRoot
+      )
+      if (rootUid) {
+        this.mindMap.emit('incremental_sync_ops', [
+          {
+            action: 'set_data',
+            uid: rootUid,
+            createdNodes: this.currentData
+          }
+        ])
+      }
+    }
   }
 
   /**
@@ -236,8 +252,15 @@ class IncrementalSync {
 
   _deduplicateOps(ops) {
     const uidMap = new Map()
+    let setDataOp = null
     ops.forEach(op => {
       const { action, uid } = op
+      if (action === 'set_data') {
+        // set_data 是全量替换，覆盖之前所有 ops
+        setDataOp = op
+        uidMap.clear()
+        return
+      }
       const existing = uidMap.get(uid)
       if (action === 'create') {
         uidMap.set(uid, op)
@@ -255,6 +278,9 @@ class IncrementalSync {
         }
       }
     })
+    if (setDataOp) {
+      return [setDataOp, ...Array.from(uidMap.values())]
+    }
     return Array.from(uidMap.values())
   }
 
@@ -289,6 +315,20 @@ class IncrementalSync {
 
     allOps.forEach(op => {
       const { action, uid, flatNode } = op
+
+      if (action === 'set_data') {
+        // 全量替换：直接用远端的完整数据重置
+        const treeData = transformObjectToTreeData(op.createdNodes)
+        if (treeData) {
+          this._waitingRenderEnd = false
+          clearTimeout(this._cooldownTimer)
+          this._cooldownTimer = null
+          this.mindMap.setData(treeData)
+          // setData 会触发 set_data 事件 → onSetData 更新 currentData
+          // 直接 return，后续 ops 无意义
+        }
+        return
+      }
 
       if (action === 'create') {
         if (data[uid]) return

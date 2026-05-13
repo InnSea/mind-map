@@ -135,7 +135,7 @@ class Export {
     fitBg = false,
     format = 'image/png'
   ) {
-    const { maxCanvasSize, minExportImgCanvasScale } = this.mindMap.opt
+    const { maxCanvasSize, minExportImgCanvasScale, errorHandler } = this.mindMap.opt
     return new Promise((resolve, reject) => {
       const img = new Image()
       // 跨域图片需要添加这个属性，否则画布被污染了无法导出图片
@@ -257,7 +257,8 @@ class Export {
         }
       }
       img.onerror = e => {
-        reject(e)
+        errorHandler(ERROR_TYPES.EXPORT_ERROR, e)
+        reject(new Error('export image load failed'))
       }
       img.src = svgSrc
     })

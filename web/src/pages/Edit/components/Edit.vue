@@ -700,8 +700,9 @@ export default {
         await this.mindMap.export(...args)
         hideLoading()
       } catch (error) {
-        console.log(error)
+        console.error(error)
         hideLoading()
+        this.$message.error(this.$t('edit.exportError'))
       }
     },
 
