@@ -116,7 +116,7 @@ class Base {
         const [key, value] = item.createNodeData({
           data,
           parent,
-          ancestors,
+          ancestors: ancestors ? ancestors.slice() : ancestors,
           layerIndex,
           index
         })
@@ -130,7 +130,7 @@ class Base {
         const [key, value] = item.createNodeData({
           data,
           parent,
-          ancestors,
+          ancestors: ancestors ? ancestors.slice() : ancestors,
           layerIndex,
           index
         })

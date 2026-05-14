@@ -26,6 +26,7 @@ export const walk = (
   }
   if (!stop && root.children && root.children.length > 0) {
     let _layerIndex = layerIndex + 1
+    ancestors.push(root)
     root.children.forEach((node, nodeIndex) => {
       walk(
         node,
@@ -35,9 +36,10 @@ export const walk = (
         false,
         _layerIndex,
         nodeIndex,
-        [...ancestors, root]
+        ancestors
       )
     })
+    ancestors.pop()
   }
   afterCallback &&
     afterCallback(root, parent, isRoot, layerIndex, index, ancestors)
