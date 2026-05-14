@@ -113,18 +113,14 @@ class IncrementalSync {
       if (!oldData[uid]) {
         createdUids.add(uid)
       } else {
-        // 细粒度比较：只比较业务数据，避免 filter 阶段重复比较
         const oldNode = oldData[uid]
         const newNode = newData[uid]
-
-        // 快速路径：引用相等直接跳过（本地操作只改了少数节点时收益巨大）
-        if (oldNode === newNode) continue
 
         const oldClean = this._stripRenderFields(oldNode.data)
         const newClean = this._stripRenderFields(newNode.data)
 
         const dataChanged = !isSameObject(oldClean, newClean)
-        const childrenChanged = JSON.stringify(oldNode.children) !== JSON.stringify(newNode.children)
+        const childrenChanged = this._childrenChanged(oldNode.children, newNode.children)
         const isRootChanged = oldNode.isRoot !== newNode.isRoot
 
         if (dataChanged || childrenChanged || isRootChanged) {
@@ -407,6 +403,16 @@ class IncrementalSync {
       }
       delete data[currentUid]
     }
+  }
+
+  _childrenChanged(oldChildren, newChildren) {
+    if (!oldChildren && !newChildren) return false
+    if (!oldChildren || !newChildren) return true
+    if (oldChildren.length !== newChildren.length) return true
+    for (let i = 0; i < oldChildren.length; i++) {
+      if (oldChildren[i] !== newChildren[i]) return true
+    }
+    return false
   }
 
   _stripRenderFields(data) {

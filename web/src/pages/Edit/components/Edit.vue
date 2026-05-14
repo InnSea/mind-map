@@ -445,6 +445,7 @@ export default {
           console.error(err)
           switch (code) {
             case 'export_error':
+            case 'export_load_image_error':
               this.$message.error(this.$t('edit.exportError'))
               break
             default:
