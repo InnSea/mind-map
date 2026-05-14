@@ -6,8 +6,8 @@ import {
 } from '../utils/index'
 
 class IncrementalSync {
-  // 渲染过程产生的临时标记字段 + expand（expand 不参与协同同步）
-  static _renderSideEffectFields = ['needUpdate', 'resetRichText', 'expand']
+  // 渲染过程产生的临时标记字段
+  static _renderSideEffectFields = ['needUpdate', 'resetRichText']
 
   constructor(opt) {
     this.opt = opt
@@ -124,7 +124,8 @@ class IncrementalSync {
         const isRootChanged = oldNode.isRoot !== newNode.isRoot
 
         if (dataChanged || childrenChanged || isRootChanged) {
-          ops.push({ action: 'update', uid, flatNode: newNode, oldFlatNode: oldNode })
+          const isExpandChange = !childrenChanged && !isRootChanged && this._isOnlyExpandChanged(oldClean, newClean)
+          ops.push({ action: 'update', uid, flatNode: newNode, oldFlatNode: oldNode, isExpandChange })
         }
       }
     }
@@ -349,13 +350,17 @@ class IncrementalSync {
       } else if (action === 'update') {
         if (!data[uid]) return
         if (flatNode) {
-          const hasLocalExpand = data[uid].data && 'expand' in data[uid].data
-          const localExpand = hasLocalExpand ? data[uid].data.expand : undefined
+          if (op.isExpandChange) {
+            data[uid] = structuredClone(flatNode)
+          } else {
+            const hasLocalExpand = data[uid].data && 'expand' in data[uid].data
+            const localExpand = hasLocalExpand ? data[uid].data.expand : undefined
 
-          data[uid] = structuredClone(flatNode)
+            data[uid] = structuredClone(flatNode)
 
-          if (data[uid].data && hasLocalExpand) {
-            data[uid].data.expand = localExpand
+            if (data[uid].data && hasLocalExpand) {
+              data[uid].data.expand = localExpand
+            }
           }
         }
         changed = true
@@ -446,6 +451,23 @@ class IncrementalSync {
       res.text = text.replace(/<span>(.*?)<\/span>/g, '$1')
     }
     return res
+  }
+
+  _isOnlyExpandChanged(oldData, newData) {
+    const oldKeys = Object.keys(oldData)
+    const newKeys = Object.keys(newData)
+    const allKeys = new Set([...oldKeys, ...newKeys])
+    for (const key of allKeys) {
+      if (key === 'expand') continue
+      if (oldData[key] !== newData[key]) {
+        if (typeof oldData[key] === 'object' || typeof newData[key] === 'object') {
+          if (!isSameObject(oldData[key], newData[key])) return false
+        } else {
+          return false
+        }
+      }
+    }
+    return allKeys.has('expand') && oldData.expand !== newData.expand
   }
 
   beforePluginRemove() {
