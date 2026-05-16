@@ -1,28 +1,8 @@
 class Ai {
-  constructor(options = {}) {
-    this.options = options
-
-    this.baseData = {}
+  constructor() {
     this.controller = null
     this.currentChunk = ''
     this.content = ''
-  }
-
-  init(type = 'huoshan', options = {}) {
-    // 火山引擎接口
-    if (type === 'huoshan') {
-      this.baseData = {
-        api: options.api,
-        method: options.method,
-        headers: {
-          Authorization: 'Bearer ' + options.key
-        },
-        data: {
-          model: options.model,
-          stream: true
-        }
-      }
-    }
   }
 
   async request(data, progress = () => {}, end = () => {}, err = () => {}) {
@@ -34,11 +14,8 @@ class Ai {
         if (done) {
           return
         }
-        // 拿到当前切片的数据
         const text = decoder.decode(value)
-        // 处理切片数据
         let chunk = this.handleChunkData(text)
-        // 判断是否有不完整切片，如果有，合并下一次处理，没有则获取数据
         if (this.currentChunk) continue
         let isEnd = false
         const list = chunk
@@ -72,19 +49,13 @@ class Ai {
 
   async postMsg(data) {
     this.controller = new AbortController()
-    const res = await fetch("https://test.classtorch.com/api/ai/chat", {
+    const res = await fetch('https://test.classtorch.com/api/ai/chat', {
       signal: this.controller.signal,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        ...this.baseData,
-        data: {
-          ...this.baseData.data,
-          ...data
-        }
-      }),
+      body: JSON.stringify(data),
       timeout: 60000
     })
     if (res.status && res.status !== 200) {

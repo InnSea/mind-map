@@ -54,12 +54,6 @@
         <div class="tip warning">
           {{ $t('ai.importantTip') }}
         </div>
-        <!-- <div class="tip">
-          {{ $t('ai.wantModifyAiConfigTip')
-          }}<el-button size="small" @click="showAiConfigDialog">{{
-            $t('ai.modifyAIConfiguration')
-          }}</el-button>
-        </div> -->
       </div>
       <div slot="footer" class="dialog-footer">
         <el-button size="mini" @click="closeAiCreateDialog">{{
@@ -80,7 +74,6 @@
         $t('ai.stopGenerating')
       }}</el-button>
     </div>
-    <AiConfigDialog v-model="aiConfigDialogVisible"></AiConfigDialog>
     <!-- AI续写 -->
     <el-dialog
       class="createDialog"
@@ -113,13 +106,8 @@ import {
   checkNodeOuter,
   getStrWithBrFromHtml
 } from 'simple-mind-map/src/utils'
-import { mapState } from 'vuex'
-import AiConfigDialog from './AiConfigDialog.vue'
 
 export default {
-  components: {
-    AiConfigDialog
-  },
   props: {
     mindMap: {
       type: Object
@@ -139,7 +127,6 @@ export default {
       createDialogVisible: false,
       aiInput: '',
       aiCreatingMaskVisible: false,
-      aiConfigDialogVisible: false,
 
       mindMapDataCache: '',
       beingAiCreateNodeUid: '',
@@ -149,15 +136,11 @@ export default {
       beingCreatePartNode: null
     }
   },
-  computed: {
-    ...mapState(['aiConfig'])
-  },
   created() {
     this.$bus.$on('ai_create_all', this.aiCrateAll)
     this.$bus.$on('ai_create_part', this.showAiCreatePartDialog)
     this.$bus.$on('ai_chat', this.aiChat)
     this.$bus.$on('ai_chat_stop', this.aiChatStop)
-    this.$bus.$on('showAiConfigDialog', this.showAiConfigDialog)
   },
   mounted() {
     document.body.appendChild(this.$refs.aiCreatingMaskRef)
@@ -167,14 +150,8 @@ export default {
     this.$bus.$off('ai_create_part', this.showAiCreatePartDialog)
     this.$bus.$off('ai_chat', this.aiChat)
     this.$bus.$off('ai_chat_stop', this.aiChatStop)
-    this.$bus.$off('showAiConfigDialog', this.showAiConfigDialog)
   },
   methods: {
-    // 显示AI配置修改弹窗
-    showAiConfigDialog() {
-      this.aiConfigDialogVisible = true
-    },
-
     // 客户端连接检测
     async testConnect() {
       try {
@@ -193,19 +170,6 @@ export default {
 
     // 检测ai是否可用
     async aiTest() {
-      // 检查配置
-      if (
-        !(
-          this.aiConfig.api &&
-          this.aiConfig.key &&
-          this.aiConfig.model &&
-          this.aiConfig.port
-        )
-      ) {
-        this.showAiConfigDialog()
-        throw new Error(this.$t('ai.configurationMissing'))
-      }
-      // 检查连接
       let isConnect = false
       try {
         await fetch('https://test.classtorch.com/api/ai/test', {
@@ -248,10 +212,7 @@ export default {
       this.aiCreatingMaskVisible = true
       // 发起请求
       this.isAiCreating = true
-      this.aiInstance = new Ai({
-        port: this.aiConfig.port
-      })
-      this.aiInstance.init('huoshan', this.aiConfig)
+      this.aiInstance = new Ai()
       this.mindMap.renderer.setRootNodeCenter()
       this.mindMap.setData({
         data: { text: '', expand: true, uid: createUid() },
@@ -484,10 +445,7 @@ export default {
         this.aiCreatingMaskVisible = true
         // 发起请求
         this.isAiCreating = true
-        this.aiInstance = new Ai({
-          port: this.aiConfig.port
-        })
-        this.aiInstance.init('huoshan', this.aiConfig)
+        this.aiInstance = new Ai()
         this.aiInstance.request(
           {
             messages: [
@@ -602,10 +560,7 @@ export default {
         await this.aiTest()
         // 发起请求
         this.isAiCreating = true
-        this.aiInstance = new Ai({
-          port: this.aiConfig.port
-        })
-        this.aiInstance.init('huoshan', this.aiConfig)
+        this.aiInstance = new Ai()
         this.aiInstance.request(
           {
             messages: messageList.map(msg => {

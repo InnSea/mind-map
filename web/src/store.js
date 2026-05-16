@@ -25,6 +25,7 @@ const store = new Vuex.Store({
       // 是否开启AI功能
       enableAi: true
     },
+
     activeSidebar: '', // 当前显示的侧边栏
     isOutlineEdit: false, // 是否是大纲编辑模式
     isReadonly: false, // 是否只读
@@ -42,13 +43,6 @@ const store = new Vuex.Store({
     supportNodeLink: false, // 是否支持NodeLink插件
     supportMoreShapes: false, // 是否支持MoreShapes插件
     isDragOutlineTreeNode: false, // 当前是否正在拖拽大纲树的节点
-    aiConfig: {
-      api: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-      key: 'ark-94ebd199-7847-4da3-9abf-b2a06d44a968-3f058',
-      model: 'deepseek-v3-2-251201',
-      port: 3456,
-      method: 'POST'
-    },
     // 扩展主题列表
     extendThemeGroupList: [],
     // 内置背景图片
@@ -63,17 +57,11 @@ const store = new Vuex.Store({
 
     // 设置本地配置
     setLocalConfig(state, data) {
-      const aiConfigKeys = Object.keys(state.aiConfig)
       Object.keys(data).forEach(key => {
-        if (aiConfigKeys.includes(key)) {
-          state.aiConfig[key] = data[key]
-        } else {
-          state.localConfig[key] = data[key]
-        }
+        state.localConfig[key] = data[key]
       })
       storeLocalConfig({
-        ...state.localConfig,
-        ...state.aiConfig
+        ...state.localConfig
       })
     },
 

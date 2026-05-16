@@ -6,10 +6,6 @@
           <span class="el-icon-delete"></span>
           {{ $t('ai.clearRecords') }}
         </el-button>
-        <!-- <el-button size="mini" @click="modifyAiConfig">
-          <span class="el-icon-edit"></span>
-          {{ $t('ai.modifyAIConfiguration') }}
-        </el-button> -->
       </div>
       <div class="chatResBox customScrollbar" ref="chatResBoxRef">
         <div
@@ -157,10 +153,6 @@ export default {
 
     clear() {
       this.chatList = []
-    },
-
-    modifyAiConfig() {
-      this.$bus.$emit('showAiConfigDialog')
     }
   }
 }
