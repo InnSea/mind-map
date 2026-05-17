@@ -14,6 +14,11 @@ class IncrementalSync {
     this.mindMap = opt.mindMap
     // 平级对象形式的当前数据
     this.currentData = null
+    // 发送端：上次发送 ops 时的数据快照
+    this._lastEmittedData = null
+    // 发送端：防抖定时器
+    this._emitTimer = null
+    this._emitDelay = 80
     // 操作队列
     this._opsQueue = []
     this._applyTimer = null
@@ -29,6 +34,7 @@ class IncrementalSync {
       this.currentData = transformTreeDataToObject(
         simpleDeepClone(this.mindMap.opt.data)
       )
+      this._lastEmittedData = this.currentData
     }
   }
 
@@ -50,6 +56,7 @@ class IncrementalSync {
   onSetData(data) {
     const oldData = this.currentData
     this.currentData = transformTreeDataToObject(simpleDeepClone(data))
+    this._lastEmittedData = this.currentData
     // 导入整份文件时，触发全量同步：把整棵新树作为一个 create 操作发出
     if (oldData) {
       const rootUid = Object.keys(this.currentData).find(
@@ -77,6 +84,7 @@ class IncrementalSync {
     const renderTree = this.mindMap.renderer.renderTree
     if (renderTree) {
       this.currentData = transformTreeDataToObject(renderTree)
+      this._lastEmittedData = this.currentData
     }
     // 设置冷却期，防止 RichText 等插件在渲染后立即触发 data_change 导致回环
     clearTimeout(this._cooldownTimer)
@@ -88,20 +96,35 @@ class IncrementalSync {
   /**
    * data_change 事件处理
    * 只有本地操作才会触发 data_change（远程 apply 绕过了 addHistory）
-   * 对比 currentData 找出 diff 并发送
+   * 防抖合并后对比 _lastEmittedData 找出 diff 并发送
    */
   onDataChange(data) {
     // 冷却期内不发送 ops，避免 RichText 等插件触发的虚假 diff
     if (this._cooldownTimer || this._waitingRenderEnd) {
       this.currentData = transformTreeDataToObject(data)
+      this._lastEmittedData = this.currentData
       return
     }
 
-    const newData = transformTreeDataToObject(data)
-    const oldData = this.currentData
-    this.currentData = newData
+    this.currentData = transformTreeDataToObject(data)
 
-    if (!oldData) return
+    // 防抖：合并短时间内的多次变更，只做一次 diff + emit
+    if (this._emitTimer) {
+      clearTimeout(this._emitTimer)
+    }
+    this._emitTimer = setTimeout(() => {
+      this._emitTimer = null
+      this._emitOps()
+    }, this._emitDelay)
+  }
+
+  _emitOps() {
+    const newData = this.currentData
+    const oldData = this._lastEmittedData
+
+    if (!oldData || !newData) return
+
+    this._lastEmittedData = newData
 
     const ops = []
     const createdUids = new Set()
@@ -215,7 +238,6 @@ class IncrementalSync {
       }
     })
 
-    // filter 阶段已经不需要了，因为前面已经做了细粒度比较
     if (ops.length > 0) {
       this.mindMap.emit('incremental_sync_ops', ops)
     }
@@ -473,9 +495,11 @@ class IncrementalSync {
   beforePluginRemove() {
     clearTimeout(this._applyTimer)
     clearTimeout(this._cooldownTimer)
+    clearTimeout(this._emitTimer)
     this._opsQueue = []
     this._waitingRenderEnd = false
     this.currentData = null
+    this._lastEmittedData = null
     this.unBindEvent()
   }
 

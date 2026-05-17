@@ -98,7 +98,7 @@ class Render {
     this.activeNodeList = []
     // 防抖定时器
     this.emitNodeActiveEventTimer = null
-    this.renderTimer = null
+    this.renderRafId = null
     // 根节点
     this.root = null
     // 文本编辑框，需要再bindEvent之前实例化，否则单击事件只能触发隐藏文本编辑框，而无法保存文本修改
@@ -552,10 +552,13 @@ class Render {
   // 渲染
   render(callback, source) {
     this.addRenderParams(callback, source)
-    clearTimeout(this.renderTimer)
-    this.renderTimer = setTimeout(() => {
+    if (this.renderRafId) {
+      cancelAnimationFrame(this.renderRafId)
+    }
+    this.renderRafId = requestAnimationFrame(() => {
+      this.renderRafId = null
       this._render()
-    }, 0)
+    })
   }
 
   // 真正的渲染
@@ -583,6 +586,16 @@ class Render {
       this.onRenderEnd()
       return
     }
+    // 判断是否可以走增量渲染
+    const isIncremental = !this.reRender &&
+      !this.checkHasRenderSource(CONSTANTS.CHANGE_THEME) &&
+      !this.checkHasRenderSource(CONSTANTS.CHANGE_LAYOUT)
+    // 增量模式下，快照当前所有节点位置，用于布局后对比
+    if (isIncremental && this.root) {
+      bfsWalk(this.root, node => {
+        node.snapshotPosition()
+      })
+    }
     this.mindMap.emit('node_tree_render_start')
     // 计算布局
     this.root = null
@@ -608,7 +621,7 @@ class Render {
           return
         }
         this.onRenderEnd()
-      })
+      }, false, false, isIncremental)
     })
     this.emitNodeActiveEvent()
   }

@@ -115,6 +115,9 @@ class MindMapNode {
     this.isMultipleChoice = false
     // 是否需要重新layout
     this.needLayout = false
+    // 增量渲染：位置快照（NaN 确保首次渲染时视为已变化）
+    this._snapshotLeft = NaN
+    this._snapshotTop = NaN
     // 当前是否是隐藏状态
     this.isHide = false
     const proto = Object.getPrototypeOf(this)
@@ -184,6 +187,20 @@ class MindMapNode {
 
   set top(val) {
     this._top = val
+  }
+
+  snapshotPosition() {
+    this._snapshotLeft = this.left
+    this._snapshotTop = this.top
+  }
+
+  hasPositionChanged() {
+    return this._snapshotLeft !== this.left || this._snapshotTop !== this.top
+  }
+
+  _childrenPositionChanged() {
+    if (!this.children || !this.children.length) return false
+    return this.children.some(child => child.hasPositionChanged())
   }
 
   //  复位部分布局时会重新设置的数据
@@ -605,10 +622,14 @@ class MindMapNode {
   // 递归渲染
   // forceRender：强制渲染，无论是否处于画布可视区域
   // async：异步渲染
-  render(callback = () => {}, forceRender = false, async = false) {
+  // incremental：增量渲染，跳过位置未变化的节点的 DOM 操作
+  render(callback = () => {}, forceRender = false, async = false, incremental = false) {
     // 节点
-    // 重新渲染连线
-    this.renderLine()
+    const posChanged = this.hasPositionChanged()
+    // 重新渲染连线：增量模式下仅当自身或子节点位置变化时才重绘
+    if (!incremental || posChanged || this._childrenPositionChanged()) {
+      this.renderLine()
+    }
     const { openPerformance, performanceConfig } = this.mindMap.opt
     // 强制渲染、或没有开启性能模式、或不在画布可视区域内不渲染节点内容
     // 根节点不进行懒加载，始终渲染，因为滚动条插件依赖根节点进行计算
@@ -633,12 +654,17 @@ class MindMapNode {
         if (!this.nodeDraw.has(this.group)) {
           this.nodeDraw.add(this.group)
         }
+        let didLayout = false
         if (this.needLayout) {
           this.needLayout = false
           this.layout()
+          didLayout = true
         }
-        this.updateExpandBtnPlaceholderRect()
-        this.update(forceRender)
+        // 增量模式下，位置未变且无需 layout 且子节点位置也未变的节点跳过 update
+        if (!incremental || posChanged || didLayout || this._childrenPositionChanged()) {
+          this.updateExpandBtnPlaceholderRect()
+          this.update(forceRender)
+        }
       }
     } else if (openPerformance && performanceConfig.removeNodeWhenOutCanvas) {
       this.removeSelf()
@@ -660,11 +686,12 @@ class MindMapNode {
               }
             },
             forceRender,
-            async
+            async,
+            incremental
           )
         }
         if (async) {
-          setTimeout(renderChild, 0)
+          requestAnimationFrame(renderChild)
         } else {
           renderChild()
         }
