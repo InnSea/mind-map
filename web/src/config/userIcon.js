@@ -74,6 +74,7 @@ export default async function loadUserIconList() {
         .map(user => {
           return {
             uid: user.id,
+            name: user.name,
             icon: generateAvatarSvg(user.name, stringToColor(user.name))
           }
         })

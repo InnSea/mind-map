@@ -75,6 +75,8 @@
 <script>
 import { mapState } from 'vuex'
 import { isUndef, getTextFromHtml } from 'simple-mind-map/src/utils/index'
+import { nodeIconList as builtinIconList } from 'simple-mind-map/src/svg/icons'
+import icon from '@/config/icon'
 
 // 搜索替换
 export default {
@@ -100,7 +102,8 @@ export default {
   computed: {
     ...mapState({
       isReadonly: state => state.isReadonly,
-      isDark: state => state.localConfig.isDark
+      isDark: state => state.localConfig.isDark,
+      dynamicIconList: state => state.dynamicIconList
     })
   },
   watch: {
@@ -212,17 +215,34 @@ export default {
     },
 
     onSearchMatchNodeListChange(list) {
+      const keyword = (this.searchText || '').trim()
+      const reg = keyword ? new RegExp(keyword, 'g') : null
+      const wrap = str => {
+        if (!str) return ''
+        if (!reg) return str
+        return str.replace(reg, a => `<span class="match">${a}</span>`)
+      }
       this.searchResultList = list.map(item => {
         const data = item.data || item.nodeData.data
-        let name = data.text
+        let name = data.text || ''
         const id = data.uid
         if (data.richText) {
           name = getTextFromHtml(name)
         }
-        const reg = new RegExp(`${this.searchText.trim()}`, 'g')
-        const text = name.replace(reg, a => {
-          return `<span class="match">${a}</span>`
-        })
+        let text = wrap(name)
+        // 节点文本为空或未命中关键字时，尝试用匹配到的图标名兜底
+        if (!name || (keyword && !name.includes(keyword))) {
+          const iconLabel = this.getMatchedIconLabel(data.icon, keyword)
+          if (iconLabel) {
+            const labelText = `[图标] ${iconLabel}`
+            if (!name) {
+              name = labelText
+              text = wrap(labelText)
+            } else {
+              text += ` <span class="iconHint">[图标] ${wrap(iconLabel)}</span>`
+            }
+          }
+        }
         return {
           data: item,
           id,
@@ -230,6 +250,41 @@ export default {
           name
         }
       })
+    },
+
+    // 在合并后的图标元数据中，找出节点 icon 数组里命中关键字的图标显示名
+    getMatchedIconLabel(iconList, keyword) {
+      if (!Array.isArray(iconList) || iconList.length === 0 || !keyword) {
+        return ''
+      }
+      const lower = keyword.toLowerCase()
+      const groups = [
+        ...builtinIconList,
+        ...this.dynamicIconList,
+        ...icon
+      ]
+      const labels = []
+      iconList.forEach(key => {
+        const idx = key.indexOf('_')
+        if (idx < 0) return
+        const type = key.slice(0, idx)
+        const name = key.slice(idx + 1)
+        const group = groups.find(g => g && g.type === type)
+        if (!group || !Array.isArray(group.list)) return
+        const target = group.list.find(it => it && String(it.name) === name)
+        if (!target) return
+        const groupHit =
+          (group.name && String(group.name).toLowerCase().includes(lower)) ||
+          (group.type && String(group.type).toLowerCase().includes(lower))
+        const itemHit =
+          groupHit ||
+          (target.name && String(target.name).toLowerCase().includes(lower)) ||
+          (target.text && String(target.text).toLowerCase().includes(lower))
+        if (itemHit) {
+          labels.push(target.text || target.name || group.name || type)
+        }
+      })
+      return labels.join('、')
     },
 
     setSearchResultListHeight() {
@@ -349,6 +404,12 @@ export default {
       /deep/.match {
         color: #409eff;
         font-weight: bold;
+      }
+
+      /deep/.iconHint {
+        color: #909399;
+        margin-left: 6px;
+        font-size: 12px;
       }
     }
 

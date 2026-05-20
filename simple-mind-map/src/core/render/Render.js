@@ -586,16 +586,6 @@ class Render {
       this.onRenderEnd()
       return
     }
-    // 判断是否可以走增量渲染
-    const isIncremental = !this.reRender &&
-      !this.checkHasRenderSource(CONSTANTS.CHANGE_THEME) &&
-      !this.checkHasRenderSource(CONSTANTS.CHANGE_LAYOUT)
-    // 增量模式下，快照当前所有节点位置，用于布局后对比
-    if (isIncremental && this.root) {
-      bfsWalk(this.root, node => {
-        node.snapshotPosition()
-      })
-    }
     this.mindMap.emit('node_tree_render_start')
     // 计算布局
     this.root = null
@@ -621,7 +611,7 @@ class Render {
           return
         }
         this.onRenderEnd()
-      }, false, false, isIncremental)
+      })
     })
     this.emitNodeActiveEvent()
   }

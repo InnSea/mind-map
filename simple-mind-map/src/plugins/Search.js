@@ -7,6 +7,7 @@ import {
 } from '../utils/index'
 import MindMapNode from '../core/render/node/MindMapNode'
 import { CONSTANTS } from '../constants/constant'
+import { nodeIconList as builtinIconList } from '../svg/icons'
 
 // 搜索插件
 class Search {
@@ -117,14 +118,19 @@ class Search {
       : this.mindMap.renderer.renderTree
     if (!tree) return
     const matchList = []
+    const iconMatchKeys = this.getIconMatchKeys(this.searchText)
     bfsWalk(tree, node => {
-      let { richText, text, generalization } = isOnlySearchCurrentRenderNodes
+      let { richText, text, generalization, icon } = isOnlySearchCurrentRenderNodes
         ? node.getData()
         : node.data
       if (richText) {
         text = getTextFromHtml(text)
       }
-      if (text.includes(this.searchText)) {
+      let matched = text.includes(this.searchText)
+      if (!matched && iconMatchKeys && Array.isArray(icon) && icon.length > 0) {
+        matched = icon.some(item => iconMatchKeys.has(item))
+      }
+      if (matched) {
         matchList.push(node)
       }
       // 概要节点
@@ -150,6 +156,35 @@ class Search {
       })
     })
     this.updateMatchNodeList(matchList)
+  }
+
+  // 根据搜索文本，从已注册的图标元数据中收集所有命中的图标 key（type_name）
+  getIconMatchKeys(searchText) {
+    if (isUndef(searchText)) return null
+    const keyword = String(searchText).toLowerCase()
+    if (!keyword) return null
+    const groups = [
+      ...(builtinIconList || []),
+      ...((this.mindMap.opt && this.mindMap.opt.iconList) || [])
+    ]
+    const keys = new Set()
+    groups.forEach(group => {
+      if (!group || !Array.isArray(group.list)) return
+      const groupHit =
+        (group.name && String(group.name).toLowerCase().includes(keyword)) ||
+        (group.type && String(group.type).toLowerCase().includes(keyword))
+      group.list.forEach(item => {
+        if (!item) return
+        const itemHit =
+          groupHit ||
+          (item.name && String(item.name).toLowerCase().includes(keyword)) ||
+          (item.text && String(item.text).toLowerCase().includes(keyword))
+        if (itemHit) {
+          keys.add(group.type + '_' + item.name)
+        }
+      })
+    })
+    return keys.size > 0 ? keys : null
   }
 
   // 判断对象是否是节点实例

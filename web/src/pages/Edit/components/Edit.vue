@@ -385,6 +385,7 @@ export default {
             type: 'user',
             list: userList.map(item => ({
               name: String(item.uid),
+              text: item.name,
               icon: item.icon
             }))
           }
