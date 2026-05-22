@@ -187,7 +187,6 @@ class IncrementalSync {
           action: 'create',
           uid,
           parentUid,
-          flatNode: newData[uid],
           createdNodes
         })
       }
@@ -343,8 +342,6 @@ class IncrementalSync {
           clearTimeout(this._cooldownTimer)
           this._cooldownTimer = null
           this.mindMap.setData(treeData)
-          // setData 会触发 set_data 事件 → onSetData 更新 currentData
-          // 直接 return，后续 ops 无意义
         }
         return
       }
@@ -375,12 +372,15 @@ class IncrementalSync {
           if (op.isExpandChange) {
             data[uid] = structuredClone(flatNode)
           } else {
-            const hasLocalExpand = data[uid].data && 'expand' in data[uid].data
-            const localExpand = hasLocalExpand ? data[uid].data.expand : undefined
+            const localNode = data[uid]
+            const childrenDiff = this._childrenChanged(localNode.children, flatNode.children)
+
+            const hasLocalExpand = localNode.data && 'expand' in localNode.data
+            const localExpand = hasLocalExpand ? localNode.data.expand : undefined
 
             data[uid] = structuredClone(flatNode)
 
-            if (data[uid].data && hasLocalExpand) {
+            if (data[uid].data && hasLocalExpand && !childrenDiff) {
               data[uid].data.expand = localExpand
             }
           }
