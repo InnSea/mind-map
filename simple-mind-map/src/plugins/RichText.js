@@ -806,13 +806,15 @@ class RichText {
           node.data.richText = false
           node.data.text = getTextFromHtml(node.data.text)
         }
-        // 概要
-        if (node.data) {
-          const generalizationList = formatGetNodeGeneralization(node.data)
-          generalizationList.forEach(item => {
-            item.richText = false
-            item.text = getTextFromHtml(item.text)
-          })
+        // 概要：整体替换 generalization，避免原地修改导致引用相等
+        if (node.data && node.data.generalization) {
+          const isArray = Array.isArray(node.data.generalization)
+          const list = formatGetNodeGeneralization(node.data).map(item => ({
+            ...item,
+            richText: false,
+            text: getTextFromHtml(item.text)
+          }))
+          node.data.generalization = isArray ? list : list[0]
         }
       },
       null,

@@ -1,7 +1,7 @@
 import MindMapNode from '../core/render/node/MindMapNode'
 import { CONSTANTS, initRootNodePositionMap } from '../constants/constant'
 import Lru from '../utils/Lru'
-import { createUid } from '../utils/index'
+import { createUid, isSameObject } from '../utils/index'
 
 //  布局基类
 class Base {
@@ -67,18 +67,28 @@ class Base {
   }
 
   // 节点节点数据是否发生了改变
+  // 上次渲染后的快照 lastData 是 JSON.stringify 后的字符串（兼容旧路径）
+  // 比较时把 lastData 解析回对象，与 curData 做对象级浅+深比较（忽略 isActive/expand）
+  // 避免对 curData 再次 stringify，相比旧实现少 1 次 stringify
   checkIsNodeDataChange(lastData, curData) {
-    if (lastData) {
-      // 对比忽略激活状态和展开收起状态
-      lastData = typeof lastData === 'string' ? JSON.parse(lastData) : lastData
-      lastData.isActive = curData.isActive
-      lastData.expand = curData.expand
-      lastData = JSON.stringify(lastData)
-    } else {
-      // 只在都有数据时才进行对比
-      return false
+    if (!lastData) return false
+    const parsed = typeof lastData === 'string' ? JSON.parse(lastData) : lastData
+    const allKeys = new Set([
+      ...Object.keys(parsed),
+      ...Object.keys(curData)
+    ])
+    for (const key of allKeys) {
+      if (key === 'isActive' || key === 'expand') continue
+      const a = parsed[key]
+      const b = curData[key]
+      if (a === b) continue
+      if (a && b && typeof a === 'object' && typeof b === 'object') {
+        if (!isSameObject(a, b)) return true
+      } else {
+        return true
+      }
     }
-    return lastData !== JSON.stringify(curData)
+    return false
   }
 
   // 检查库前置或后置内容是否改变了

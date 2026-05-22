@@ -1017,11 +1017,16 @@ export const createUidForAppointNodes = (
       }
       if (handleGeneralization) {
         const generalizationList = formatGetNodeGeneralization(node.data)
-        generalizationList.forEach(gNode => {
-          if (createNewId || isUndef(gNode.uid)) {
-            gNode.uid = createUid()
-          }
-        })
+        if (generalizationList.length > 0) {
+          const isArray = Array.isArray(node.data.generalization)
+          const newList = generalizationList.map(gNode => {
+            if (createNewId || isUndef(gNode.uid)) {
+              return { ...gNode, uid: createUid() }
+            }
+            return gNode
+          })
+          node.data.generalization = isArray ? newList : newList[0]
+        }
       }
       handle && handle(node)
       if (node.children && node.children.length > 0) {
