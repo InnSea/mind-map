@@ -64,23 +64,66 @@ function stringToColor(str) {
 
 export default async function loadUserIconList() {
   try {
-    const response = await fetch(
-      'https://test.classtorch.com/api/auth/user/list?page=1&size=1000'
+    const [userResponse, groupResponse] = await Promise.all([
+      fetch('https://test.classtorch.com/api/auth/user/list?page=1&size=1000'),
+      fetch('https://test.classtorch.com/api/auth/group/all')
+    ])
+    const userResult = await userResponse.json()
+    const groupResult = await groupResponse.json()
+
+    if (userResult.code !== 0 || !Array.isArray(userResult.data)) return []
+
+    const users = userResult.data.filter(
+      user => user.name && user.is_valid && user.is_del === 0
     )
-    const result = await response.json()
-    if (result.code === 0 && Array.isArray(result.data)) {
-      const iconList = result.data
-        .filter(user => user.name && user.is_valid && user.is_del === 0)
-        .map(user => {
-          return {
-            uid: user.id,
-            name: user.name,
-            icon: generateAvatarSvg(user.name, stringToColor(user.name))
-          }
-        })
-      return iconList
+
+    const groups =
+      groupResult.code === 0 && Array.isArray(groupResult.data)
+        ? groupResult.data
+        : []
+
+    const groupMap = new Map(groups.map(g => [g.id, g.name]))
+
+    const grouped = {}
+    users.forEach(user => {
+      const gid = user.group_id || 0
+      if (!grouped[gid]) grouped[gid] = []
+      grouped[gid].push({
+        uid: user.id,
+        name: user.name,
+        icon: generateAvatarSvg(user.name, stringToColor(user.name))
+      })
+    })
+
+    const result = []
+    const entries = Object.entries(grouped).sort(([a], [b]) => {
+      if (a === '0') return 1
+      if (b === '0') return -1
+      return Number(a) - Number(b)
+    })
+    for (const [gid, list] of entries) {
+      const groupName = groupMap.get(Number(gid)) || '未分组'
+      result.push({
+        name: `${groupName} - 用户图标`,
+        type: `userGroup${gid}`,
+        list: list.map(item => ({
+          name: String(item.uid),
+          text: item.name,
+          icon: item.icon
+        }))
+      })
     }
-    return []
+    // 兼容老数据：老节点保存的引用是 user_<uid>，需要 type: 'user' 的分组才能命中
+    result.push({
+      name: '全部用户',
+      type: 'user',
+      list: users.map(user => ({
+        name: String(user.id),
+        text: user.name,
+        icon: generateAvatarSvg(user.name, stringToColor(user.name))
+      }))
+    })
+    return result
   } catch (error) {
     console.error('加载用户头像失败:', error)
     return []

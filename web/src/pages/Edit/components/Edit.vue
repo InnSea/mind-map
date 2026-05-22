@@ -378,18 +378,8 @@ export default {
     // 预加载用户图标
     async preloadUserIcons() {
       try {
-        const userList = await loadUserIconList()
-        this.preloadedUserIcons = [
-          {
-            name: '用户图标',
-            type: 'user',
-            list: userList.map(item => ({
-              name: String(item.uid),
-              text: item.name,
-              icon: item.icon
-            }))
-          }
-        ]
+        const groupedIcons = await loadUserIconList()
+        this.preloadedUserIcons = groupedIcons
         this.$store.commit('setDynamicIconList', this.preloadedUserIcons)
       } catch (e) {
         this.preloadedUserIcons = []

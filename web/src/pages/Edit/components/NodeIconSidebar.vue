@@ -80,7 +80,7 @@ export default {
       dynamicIconList: state => state.dynamicIconList
     }),
     nodeIconList() {
-      return mergerIconList([...nodeIconList, ...this.dynamicIconList, ...icon])
+      return mergerIconList([...nodeIconList, ...this.dynamicIconList, ...icon]).filter(item => item.type !== 'user')
     }
   },
   watch: {
