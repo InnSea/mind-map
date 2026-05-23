@@ -63,13 +63,14 @@ class IncrementalSync {
         uid => this.currentData[uid].isRoot
       )
       if (rootUid) {
-        this.mindMap.emit('incremental_sync_ops', [
-          {
-            action: 'set_data',
-            uid: rootUid,
-            createdNodes: this.currentData
-          }
-        ])
+        const op = {
+          action: 'set_data',
+          uid: rootUid,
+          createdNodes: this.currentData,
+          prevNodes: oldData
+        }
+        const inverseOps = this._invertOps([op])
+        this.mindMap.emit('incremental_sync_ops', [op], inverseOps)
       }
     }
   }
@@ -238,8 +239,61 @@ class IncrementalSync {
     })
 
     if (ops.length > 0) {
-      this.mindMap.emit('incremental_sync_ops', ops)
+      const inverseOps = this._invertOps(ops)
+      this.mindMap.emit('incremental_sync_ops', ops, inverseOps)
     }
+  }
+
+  /**
+   * 生成一组 ops 的逆操作（用于本地撤销栈）
+   * 逆操作要按相反顺序应用，以保证嵌套结构正确还原
+   */
+  _invertOps(ops) {
+    const result = []
+    for (let i = ops.length - 1; i >= 0; i--) {
+      const op = ops[i]
+      switch (op.action) {
+        case 'create':
+          result.push({
+            action: 'delete',
+            uid: op.uid,
+            parentUid: op.parentUid,
+            flatNode: op.createdNodes && op.createdNodes[op.uid],
+            deletedNodes: op.createdNodes
+          })
+          break
+        case 'delete':
+          result.push({
+            action: 'create',
+            uid: op.uid,
+            parentUid: op.parentUid,
+            createdNodes: op.deletedNodes
+          })
+          break
+        case 'update':
+          if (op.oldFlatNode) {
+            result.push({
+              action: 'update',
+              uid: op.uid,
+              flatNode: op.oldFlatNode,
+              oldFlatNode: op.flatNode,
+              isExpandChange: op.isExpandChange
+            })
+          }
+          break
+        case 'set_data':
+          if (op.prevNodes) {
+            result.push({
+              action: 'set_data',
+              uid: Object.keys(op.prevNodes).find(uid => op.prevNodes[uid].isRoot),
+              createdNodes: op.prevNodes,
+              prevNodes: op.createdNodes
+            })
+          }
+          break
+      }
+    }
+    return result
   }
 
   /**
@@ -256,10 +310,20 @@ class IncrementalSync {
 
   /**
    * 应用远程增量操作（支持批量合并）
+   * 传入 { sync: true } 时立即同步执行并返回 { applied, total }
    */
-  applyOps(operations) {
-    if (!operations || operations.length === 0) return false
+  applyOps(operations, options) {
+    if (!operations || operations.length === 0) {
+      return options && options.sync ? { applied: 0, total: 0 } : false
+    }
     this._opsQueue.push(...operations)
+    if (options && options.sync) {
+      if (this._applyTimer) {
+        clearTimeout(this._applyTimer)
+        this._applyTimer = null
+      }
+      return this._flushOps()
+    }
     if (this._applyTimer) return true
     this._applyTimer = setTimeout(() => {
       this._applyTimer = null
@@ -304,20 +368,32 @@ class IncrementalSync {
 
   _flushOps() {
     const rawOps = this._opsQueue.splice(0)
-    if (rawOps.length === 0) return
+    if (rawOps.length === 0) return { applied: 0, total: 0 }
 
     if (!this.currentData) {
       const renderTree = this.mindMap.renderer.renderTree
-      if (!renderTree) return
+      if (!renderTree) return { applied: 0, total: rawOps.length }
       this.currentData = transformTreeDataToObject(renderTree)
     }
 
     const allOps = this._deduplicateOps(rawOps)
-    if (allOps.length === 0) return
+    if (allOps.length === 0) return { applied: 0, total: rawOps.length }
+
+    // 检查是否有删除操作，如果有则先清除 active 状态
+    // 避免删除当前编辑的节点时，编辑器 DOM 残留导致文字飘到左上角
+    const hasDelete = allOps.some(op => op && op.action === 'delete')
+    if (hasDelete) {
+      try {
+        this.mindMap.execCommand('CLEAR_ACTIVE_NODE')
+      } catch (e) {
+        // 忽略清除失败，继续应用操作
+      }
+    }
 
     // 不再 structuredClone 整个 currentData，只克隆被修改的节点
     const data = this.currentData
     let changed = false
+    let appliedCount = 0
 
     // 构建 parentMap，所有 delete 操作共用，避免重复扫描
     const parentMap = {}
@@ -342,12 +418,15 @@ class IncrementalSync {
           clearTimeout(this._cooldownTimer)
           this._cooldownTimer = null
           this.mindMap.setData(treeData)
+          appliedCount++
         }
         return
       }
 
       if (action === 'create') {
         if (data[uid]) return
+        // 父节点已被删，整个 create 跳过，避免产生孤立子树
+        if (op.parentUid && !data[op.parentUid]) return
         const nodes = op.createdNodes || { [uid]: flatNode }
         const nodeUids = Object.keys(nodes)
         for (let i = 0; i < nodeUids.length; i++) {
@@ -366,6 +445,7 @@ class IncrementalSync {
           }
         }
         changed = true
+        appliedCount++
       } else if (action === 'update') {
         if (!data[uid]) return
         if (flatNode) {
@@ -386,6 +466,7 @@ class IncrementalSync {
           }
         }
         changed = true
+        appliedCount++
       } else if (action === 'delete') {
         if (!data[uid]) return
         // 使用预构建的 parentMap，避免 O(N) 扫描
@@ -396,14 +477,15 @@ class IncrementalSync {
         }
         this._deleteFromFlatData(data, uid)
         changed = true
+        appliedCount++
       }
     })
 
-    if (!changed) return
+    if (!changed) return { applied: appliedCount, total: rawOps.length }
 
     // transformObjectToTreeData 已经做了 simpleDeepClone，不需要 handleData 再做一次
     const treeData = transformObjectToTreeData(data)
-    if (!treeData) return
+    if (!treeData) return { applied: appliedCount, total: rawOps.length }
 
     // handleData 的两个必要操作：确保根节点 expand + 补全 uid
     if (treeData.data && !treeData.data.expand) {
@@ -415,6 +497,7 @@ class IncrementalSync {
 
     this._waitingRenderEnd = true
     this.mindMap.render()
+    return { applied: appliedCount, total: rawOps.length }
   }
 
   _deleteFromFlatData(data, uid) {
