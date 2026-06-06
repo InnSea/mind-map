@@ -68,7 +68,7 @@ export default {
   }
 
   .item {
-    margin-right: 12px;
+    margin-right: 20px;
 
     &:last-of-type {
       margin-right: 0;

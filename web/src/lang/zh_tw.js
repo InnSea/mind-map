@@ -321,6 +321,7 @@ export default {
     link: '超連結',
     note: '備註',
     tag: '標籤',
+    quickTag: '快捷標籤',
     summary: '摘要',
     displayOutline: '顯示大綱',
     baseStyle: '基本樣式',

@@ -1,6 +1,6 @@
 <template>
   <div class="navigatorContainer customScrollbar" :class="{ isDark: isDark }">
-    <div class="item">
+    <!-- <div class="item">
       <el-select
         v-model="lang"
         size="mini"
@@ -14,7 +14,7 @@
           :value="item.value"
         />
       </el-select>
-    </div>
+    </div> -->
     <div class="item">
       <el-tooltip
         effect="dark"

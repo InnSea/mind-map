@@ -134,6 +134,43 @@
         <span class="icon iconfont iconbiaoqian"></span>
         <span class="text">{{ $t('toolbar.tag') }}</span>
       </div>
+      <el-popover
+        v-if="item === 'quickTag'"
+        v-model="quickTagPopoverShow"
+        placement="bottom"
+        trigger="hover"
+        :disabled="activeNodes.length <= 0"
+        popper-class="quickTagPopover"
+      >
+        <div class="quickTagList">
+          <div
+            class="quickTagItem"
+            v-for="tag in quickTagList"
+            :key="tag"
+            :class="{ active: isTagActive(tag) }"
+            :style="{ backgroundColor: generateColorByContent(tag) }"
+            @click="toggleQuickTag(tag)"
+          >
+            <span class="quickTagText">{{ tag }}</span>
+            <span
+              v-if="isTagActive(tag)"
+              class="iconfont iconchenggou checkIcon"
+            ></span>
+          </div>
+        </div>
+        <div
+          slot="reference"
+          class="toolbarBtn"
+          :style="{
+            marginRight: dir === 'v' ? '0px' : '20px',
+            marginBottom: dir === 'v' ? '10px' : '0px'
+          }"
+          :class="{ disabled: activeNodes.length <= 0 }"
+        >
+          <span class="icon iconfont iconstar"></span>
+          <span class="text">{{ $t('toolbar.quickTag') }}</span>
+        </div>
+      </el-popover>
       <div
         v-if="item === 'summary'"
         class="toolbarBtn"
@@ -213,7 +250,12 @@
 
 <script>
 import { mapState, mapMutations } from 'vuex'
+import { generateColorByContent } from 'simple-mind-map/src/utils/index'
 import NodeAnnotationBtn from './NodeAnnotationBtn.vue'
+
+// 快捷标签预设
+const quickTagList = ['模块', '场景', '测试点', '补充', '待定']
+const maxTag = 5
 
 export default {
   components: { NodeAnnotationBtn },
@@ -237,7 +279,11 @@ export default {
       readonly: false,
       isFullDataFile: false,
       timer: null,
-      isInPainter: false
+      isInPainter: false,
+      quickTagList,
+      quickTagPopoverShow: false,
+      // 当前激活节点（取第一个）的标签内容，用于高亮已选快捷标签
+      activeNodeTags: []
     }
   },
   computed: {
@@ -283,6 +329,8 @@ export default {
   methods: {
     ...mapMutations(['setActiveSidebar']),
 
+    generateColorByContent,
+
     // 监听模式切换
     onModeChange(mode) {
       this.readonly = mode === 'readonly'
@@ -291,6 +339,46 @@ export default {
     // 监听节点激活
     onNodeActive(...args) {
       this.activeNodes = [...args[1]]
+      this.refreshActiveNodeTags()
+    },
+
+    // 刷新当前激活节点的标签（用于高亮已选的快捷标签）
+    refreshActiveNodeTags() {
+      if (this.activeNodes.length > 0) {
+        const tags = this.activeNodes[0].getData('tag') || []
+        this.activeNodeTags = tags.map(item =>
+          typeof item === 'string' ? item : item.text
+        )
+      } else {
+        this.activeNodeTags = []
+      }
+    },
+
+    // 快捷标签是否已应用到当前激活节点
+    isTagActive(tag) {
+      return this.activeNodeTags.includes(tag)
+    },
+
+    // 点击快捷标签：已存在则移除，否则追加（受最大数量限制）
+    toggleQuickTag(tag) {
+      if (this.activeNodes.length <= 0) return
+      const adding = !this.isTagActive(tag)
+      this.activeNodes.forEach(node => {
+        const tags = (node.getData('tag') || []).slice()
+        const index = tags.findIndex(item => {
+          const text = typeof item === 'string' ? item : item.text
+          return text === tag
+        })
+        if (adding) {
+          if (index === -1 && tags.length < maxTag) {
+            tags.push(tag)
+          }
+        } else if (index !== -1) {
+          tags.splice(index, 1)
+        }
+        node.setTag(tags)
+      })
+      this.refreshActiveNodeTags()
     },
 
     // 监听前进后退
@@ -375,7 +463,6 @@ export default {
     &:last-of-type {
       margin-right: 0;
     }
-
     &:hover {
       &:not(.disabled) {
         .icon {
@@ -439,6 +526,49 @@ export default {
         overflow: hidden;
         text-overflow: ellipsis;
       }
+    }
+  }
+}
+
+// 快捷标签弹窗（挂载在 body 上，样式不能 scoped）
+.quickTagPopover {
+  padding: 8px;
+
+  .quickTagList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 96px;
+  }
+
+  .quickTagItem {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 10px;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    opacity: 0.85;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 1;
+    }
+
+    &.active {
+      opacity: 1;
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25) inset;
+    }
+
+    .quickTagText {
+      font-size: 13px;
+    }
+
+    .checkIcon {
+      margin-left: 8px;
+      font-size: 12px;
     }
   }
 }

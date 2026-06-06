@@ -164,6 +164,7 @@ const defaultBtnList = [
   'link',
   'note',
   'tag',
+  'quickTag',
   'summary',
   'associativeLine',
   'formula',

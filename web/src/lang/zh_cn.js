@@ -323,6 +323,7 @@ export default {
     link: '超链接',
     note: '备注',
     tag: '标签',
+    quickTag: '快捷标签',
     summary: '概要',
     displayOutline: '显示大纲',
     baseStyle: '基础样式',

@@ -330,6 +330,7 @@ export default {
     link: 'Link',
     note: 'Note',
     tag: 'Tag',
+    quickTag: 'Quick tag',
     summary: 'Summary',
     displayOutline: 'Display outline',
     baseStyle: 'Base style',

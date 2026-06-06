@@ -325,6 +325,7 @@ export default {
     link: 'Liên kết',
     note: 'Ghi chú',
     tag: 'Thẻ',
+    quickTag: 'Thẻ nhanh',
     summary: 'Tóm tắt',
     displayOutline: 'Hiển thị dàn bài',
     baseStyle: 'Kiểu cơ bản',
