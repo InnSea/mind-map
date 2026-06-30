@@ -21,9 +21,11 @@ export default {
   },
   mounted() {
     this.mindMap.on('node_img_dblclick', this.onNodeTmgDblclick)
+    this.mindMap.on('remote_show_image', this.onRemoteShowImage)
   },
   beforeDestroy() {
     this.mindMap.off('node_img_dblclick', this.onNodeTmgDblclick)
+    this.mindMap.off('remote_show_image', this.onRemoteShowImage)
   },
   methods: {
     onNodeTmgDblclick(node, e) {
@@ -33,6 +35,9 @@ export default {
       this.$viewerApi({
         images: this.images
       })
+    },
+    onRemoteShowImage(url) {
+      this.$viewerApi({ images: [url] })
     }
   }
 }
