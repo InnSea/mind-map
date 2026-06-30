@@ -384,6 +384,27 @@ class IncrementalSync {
     const hasDelete = allOps.some(op => op && op.action === 'delete')
     if (hasDelete) {
       try {
+        // 获取当前正在编辑的节点
+        const currentEditNode = this.mindMap.renderer?.textEdit?.getCurrentEditNode?.()
+
+        // 检查被删除的节点中是否包含当前正在编辑的节点
+        const deletingCurrentEdit = currentEditNode && allOps.some(op => {
+          if (op.action !== 'delete') return false
+          // 检查当前编辑节点或其祖先是否被删除
+          let node = currentEditNode
+          while (node) {
+            if (node.nodeData?.data?.uid === op.uid) return true
+            node = node.parent
+          }
+          return false
+        })
+
+        if (deletingCurrentEdit) {
+          // 只有在删除当前编辑的节点时，才隐藏编辑器
+          this.mindMap.renderer.textEdit.hideEditTextBox()
+        }
+
+        // 清除所有 active 状态
         this.mindMap.execCommand('CLEAR_ACTIVE_NODE')
       } catch (e) {
         // 忽略清除失败，继续应用操作
@@ -450,19 +471,29 @@ class IncrementalSync {
         if (!data[uid]) return
         if (flatNode) {
           if (op.isExpandChange) {
-            data[uid] = structuredClone(flatNode)
-          } else {
-            const localNode = data[uid]
-            const childrenDiff = this._childrenChanged(localNode.children, flatNode.children)
-
-            const hasLocalExpand = localNode.data && 'expand' in localNode.data
-            const localExpand = hasLocalExpand ? localNode.data.expand : undefined
-
-            data[uid] = structuredClone(flatNode)
-
-            if (data[uid].data && hasLocalExpand && !childrenDiff) {
-              data[uid].data.expand = localExpand
+            // expand 同步是基于 sender 本地视图的，不能信任其 children/data 其他字段
+            // 仅同步 expand 字段，避免覆盖本地由其他并发 op 已写入的 children/data
+            if (flatNode.data && 'expand' in flatNode.data) {
+              const localNode = data[uid]
+              data[uid] = {
+                ...localNode,
+                data: { ...localNode.data, expand: flatNode.data.expand }
+              }
+              changed = true
+              appliedCount++
             }
+            return
+          }
+          const localNode = data[uid]
+          const childrenDiff = this._childrenChanged(localNode.children, flatNode.children)
+
+          const hasLocalExpand = localNode.data && 'expand' in localNode.data
+          const localExpand = hasLocalExpand ? localNode.data.expand : undefined
+
+          data[uid] = structuredClone(flatNode)
+
+          if (data[uid].data && hasLocalExpand && !childrenDiff) {
+            data[uid].data.expand = localExpand
           }
         }
         changed = true

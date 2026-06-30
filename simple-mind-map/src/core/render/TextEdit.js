@@ -425,7 +425,19 @@ export default class TextEdit {
     if (!this.showTextEdit || !this.currentNode) {
       return
     }
-    const rect = this.currentNode._textData.node.node.getBoundingClientRect()
+    // 防御性检查：节点可能已被销毁或脱离 DOM，此时 rect 为 (0,0)，
+    // 会把编辑器搬到视口左上角，需要直接关闭编辑而不是错误定位
+    const textData = this.currentNode._textData
+    const gEl = textData && textData.node && textData.node.node
+    if (!gEl || !document.contains(gEl)) {
+      this.hideEditTextBox()
+      return
+    }
+    const rect = gEl.getBoundingClientRect()
+    if (rect.width === 0 && rect.height === 0) {
+      this.hideEditTextBox()
+      return
+    }
     this.textEditNode.style.minWidth =
       rect.width + this.textNodePaddingX * 2 + 'px'
     this.textEditNode.style.minHeight =

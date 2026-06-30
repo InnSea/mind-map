@@ -138,7 +138,7 @@
         v-if="item === 'quickTag'"
         v-model="quickTagPopoverShow"
         placement="bottom"
-        trigger="hover"
+        trigger="click"
         :disabled="activeNodes.length <= 0"
         popper-class="quickTagPopover"
       >

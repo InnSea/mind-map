@@ -226,9 +226,10 @@ class RichText {
     let g = node._textData.node
     let originWidth = g.attr('data-width')
     let originHeight = g.attr('data-height')
-    // 缩放值
-    const scaleX = Math.ceil(rect.width) / originWidth
-    const scaleY = Math.ceil(rect.height) / originHeight
+    // 缩放值：统一使用画布的缩放比例，避免 rect/origin 双轴比例不一致导致编辑器内字体被非均匀拉伸
+    const scale = this.mindMap.view.scale
+    const scaleX = scale
+    const scaleY = scale
     // 内边距
     let paddingX = this.textNodePaddingX
     let paddingY = this.textNodePaddingY
@@ -341,8 +342,28 @@ class RichText {
   // 更新文本编辑框的大小和位置
   updateTextEditNode() {
     if (!this.node) return
-    const g = this.node._textData.node
-    const rect = g.node.getBoundingClientRect()
+    // 防御性检查：节点可能已经被销毁/重建（例如 IncrementalSync 远端更新、
+    // setData、re-render 等场景），此时 _textData 可能已无效或对应的 DOM 元素
+    // 已不在文档中。如果继续读取 getBoundingClientRect 会得到 (0,0)，
+    // 进而把编辑器推到视口左上角，出现"内容飘到左上角"的 bug。
+    const textData = this.node._textData
+    if (!textData || !textData.node || !textData.node.node) {
+      this.hideEditText()
+      return
+    }
+    const gEl = textData.node.node
+    if (!document.contains(gEl)) {
+      this.hideEditText()
+      return
+    }
+    const g = textData.node
+    const rect = gEl.getBoundingClientRect()
+    // 如果 rect 完全为 0，说明节点不可见（可能在性能模式下被移除画布），
+    // 同样不要把编辑器搬到左上角
+    if (rect.width === 0 && rect.height === 0) {
+      this.hideEditText()
+      return
+    }
     const originWidth = g.attr('data-width')
     const originHeight = g.attr('data-height')
     this.textEditNode.style.minWidth =
@@ -350,6 +371,13 @@ class RichText {
     this.textEditNode.style.minHeight = originHeight + 'px'
     this.textEditNode.style.left = rect.left + 'px'
     this.textEditNode.style.top = rect.top + 'px'
+    // 同步刷新 transform，避免节点重新渲染后编辑器仍使用旧的、可能非均匀的 transform 比例
+    // 导致编辑器内字体被横向/纵向拉伸
+    const scale = this.mindMap.view.scale
+    this.textEditNode.style.marginLeft = `-${this.textNodePaddingX * scale}px`
+    this.textEditNode.style.marginTop = `-${this.textNodePaddingY * scale}px`
+    this.textEditNode.style.transform = `scale(${scale})`
+    this.textEditNode.style.transformOrigin = 'left top'
     this.setQuillContainerMinHeight(originHeight)
   }
 
