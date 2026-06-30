@@ -45,12 +45,15 @@ class IncrementalSync {
     this.mindMap.on('set_data', this._onSetData)
     this._onRenderEnd = this.onRenderEnd.bind(this)
     this.mindMap.on('node_tree_render_end', this._onRenderEnd)
+    this._onNodeImgDblclick = this.onNodeImgDblclick.bind(this)
+    this.mindMap.on('node_img_dblclick', this._onNodeImgDblclick)
   }
 
   unBindEvent() {
     this.mindMap.off('data_change', this._onDataChange)
     this.mindMap.off('set_data', this._onSetData)
     this.mindMap.off('node_tree_render_end', this._onRenderEnd)
+    this.mindMap.off('node_img_dblclick', this._onNodeImgDblclick)
   }
 
   onSetData(data) {
@@ -92,6 +95,20 @@ class IncrementalSync {
     this._cooldownTimer = setTimeout(() => {
       this._cooldownTimer = null
     }, 200)
+  }
+
+  /**
+   * 图片双击放大事件处理
+   * 视图动作，不经过 op 管线，通过独立事件通道透传
+   */
+  onNodeImgDblclick(node, e) {
+    if (this.isApplying()) return
+    const url = node.getImageUrl()
+    if (!url) return
+    this.mindMap.emit('incremental_sync_view_image', {
+      uid: node.nodeData && node.nodeData.data && node.nodeData.data.uid,
+      url
+    })
   }
 
   /**
