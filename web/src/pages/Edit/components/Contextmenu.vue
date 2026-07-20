@@ -637,26 +637,26 @@ export default {
       // 提取节点核心信息
       const nodeData = this.node ? this.node.getData() : null
       const nodeUid = this.node ? this.node.uid : null
+      const leafNodeUids = []
+      // uid用于Bug关联，叶子uid仅用于给子节点添加Bug标签
+      const collectLeafNodeUids = treeNode => {
+        if (!treeNode) return
+        if (!treeNode.children || treeNode.children.length === 0) {
+          const uid = treeNode.data ? treeNode.data.uid : null
+          if (uid) leafNodeUids.push(uid)
+          return
+        }
+        treeNode.children.forEach(collectLeafNodeUids)
+      }
+      collectLeafNodeUids(this.node ? this.node.nodeData : null)
       const payload = {
         uid: nodeUid,
+        uids: leafNodeUids,
         data: nodeData,
         node: this.node
       }
-      
+
       this.$bus.$emit('transfer_to_bug', payload)
-      
-      // 考虑到跨域或直接 iframe postMessage 的情况，也通过 postMessage 向父窗口通信
-      // if (window.parent && window.parent !== window) {
-      //   window.parent.postMessage({
-      //     type: 'transfer_to_bug',
-      //     payload: {
-      //       uid: nodeUid,
-      //       data: nodeData
-      //       // 注意：postMessage 不能序列化含有循环引用的完整 Vue/DOM 对象，所以只传 data 和 uid
-      //     }
-      //   }, '*')
-      // }
-      
       this.hide()
     }
   }

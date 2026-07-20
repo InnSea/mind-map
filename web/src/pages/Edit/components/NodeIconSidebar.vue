@@ -13,7 +13,12 @@
       </el-tabs>
       <div class="boxContent">
         <div class="iconBox" v-if="activeName === 'icon'">
-          <div class="item" v-for="item in nodeIconList" :key="item.name">
+          <div
+            class="item"
+            :class="{ executionIconGroup: item.type === caseExecutionIconType }"
+            v-for="item in nodeIconList"
+            :key="item.name"
+          >
             <div class="title">{{ item.name }}</div>
             <div class="list">
               <div
@@ -24,6 +29,7 @@
                 :class="{
                   selected: iconList.includes(item.type + '_' + icon.name)
                 }"
+                :title="icon.title || item.name"
                 @click="setIcon(item.type, icon.name)"
               ></div>
             </div>
@@ -57,7 +63,10 @@ import Sidebar from './Sidebar.vue'
 import { mapState } from 'vuex'
 import { nodeIconList } from 'simple-mind-map/src/svg/icons'
 import { mergerIconList } from 'simple-mind-map/src/utils/index'
-import icon from '@/config/icon'
+import icon, {
+  CASE_EXECUTION_ICON_TYPE,
+  findSameExecutionEnvironmentIconIndex
+} from '@/config/icon'
 import image from '@/config/image'
 
 export default {
@@ -68,6 +77,7 @@ export default {
     return {
       activeName: 'icon',
       nodeImageList: [...image],
+      caseExecutionIconType: CASE_EXECUTION_ICON_TYPE,
       iconList: [],
       nodeImage: '',
       activeNodes: []
@@ -80,7 +90,18 @@ export default {
       dynamicIconList: state => state.dynamicIconList
     }),
     nodeIconList() {
-      return mergerIconList([...nodeIconList, ...this.dynamicIconList, ...icon]).filter(item => item.type !== 'user')
+      const executionGroups = icon.filter(
+        item => item.type === CASE_EXECUTION_ICON_TYPE
+      )
+      const otherCustomGroups = icon.filter(
+        item => item.type !== CASE_EXECUTION_ICON_TYPE
+      )
+      return mergerIconList([
+        ...nodeIconList,
+        ...executionGroups,
+        ...this.dynamicIconList,
+        ...otherCustomGroups
+      ]).filter(item => item.type !== 'user')
     }
   },
   watch: {
@@ -139,8 +160,11 @@ export default {
         if (index !== -1) {
           iconList.splice(index, 1)
         } else {
+          const executionIndex = findSameExecutionEnvironmentIconIndex(iconList, type, name)
           const isBuiltInType = nodeIconList.some(item => item.type === type)
-          if (isBuiltInType) {
+          if (executionIndex !== -1) {
+            iconList.splice(executionIndex, 1, key)
+          } else if (isBuiltInType) {
             let typeIndex = iconList.findIndex(item => {
               return item.split('_')[0] === type
             })
@@ -232,6 +256,21 @@ export default {
                 border-radius: 50%;
                 border: 2px solid #409eff;
               }
+            }
+          }
+        }
+
+        &.executionIconGroup {
+          .list .icon {
+            width: 45px;
+            height: 26px;
+
+            &.selected::after {
+              left: -4px;
+              top: -4px;
+              width: 49px;
+              height: 30px;
+              border-radius: 6px;
             }
           }
         }

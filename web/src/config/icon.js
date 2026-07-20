@@ -163,7 +163,44 @@ const userList = [
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">\n        <defs>\n          <linearGradient id="grad_____zefyx6nfk" x1="0%" y1="0%" x2="100%" y2="100%">\n            <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />\n            <stop offset="100%" style="stop-color:#2e9132;stop-opacity:1" />\n          </linearGradient>\n        </defs>\n        <circle cx="50" cy="50" r="48" fill="url(#grad_____zefyx6nfk)" stroke="#fff" stroke-width="2"/>\n        <text x="50" y="50" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#fff" text-anchor="middle" dominant-baseline="central">和情</text>\n      </svg>'
 ]
 
+export const CASE_EXECUTION_ICON_TYPE = 'caseExecution'
+
+const createExecutionIcon = (environment, result) => {
+  const environmentColor = environment === 'RD' ? '#1769E0' : '#7C3AED'
+  const environmentBackground = environment === 'RD' ? '#EAF2FF' : '#F4EBFF'
+  const resultColor = result === 'passed' ? '#16A34A' : '#DC2626'
+  const resultPath =
+    result === 'passed'
+      ? '<path d="M66 31l7 7 14-16" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>'
+      : '<path d="M68 22l16 16M84 22L68 38" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>'
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 102 60" data-width-ratio="1.7" data-height-ratio="1.1">
+    <rect x="2" y="5" width="98" height="50" rx="9" fill="#fff" stroke="#CBD5E1" stroke-width="2.5"/>
+    <rect x="7" y="10" width="45" height="40" rx="6" fill="${environmentBackground}"/>
+    <text x="29.5" y="31" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="${environmentColor}" text-anchor="middle" dominant-baseline="middle">${environment}</text>
+    <rect x="56" y="10" width="40" height="40" rx="6" fill="${resultColor}"/>
+    ${resultPath}
+  </svg>`
+}
+
+const executionIconList = [
+  { name: 'rdPassed', title: 'RD成功', icon: createExecutionIcon('RD', 'passed') },
+  { name: 'rdFailed', title: 'RD失败', icon: createExecutionIcon('RD', 'failed') },
+  { name: 'pdPassed', title: 'PD成功', icon: createExecutionIcon('PD', 'passed') },
+  { name: 'pdFailed', title: 'PD失败', icon: createExecutionIcon('PD', 'failed') }
+]
+
+export const findSameExecutionEnvironmentIconIndex = (iconList, type, name) => {
+  if (type !== CASE_EXECUTION_ICON_TYPE) return -1
+  const environment = name.startsWith('pd') ? 'pd' : 'rd'
+  return iconList.findIndex(item => item.startsWith(`${type}_${environment}`))
+}
+
 export default [
+  {
+    name: '执行状态图标',
+    type: CASE_EXECUTION_ICON_TYPE,
+    list: executionIconList
+  },
   {
     name: '多彩标记图标', // 分组名称
     type: 'sign2', // 分组的值

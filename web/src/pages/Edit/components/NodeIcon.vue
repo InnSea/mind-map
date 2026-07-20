@@ -5,7 +5,12 @@
     :visible.sync="dialogVisible"
     width="500"
   >
-    <div class="item" v-for="item in nodeIconList" :key="item.name">
+    <div
+      class="item"
+      :class="{ executionIconGroup: item.type === caseExecutionIconType }"
+      v-for="item in nodeIconList"
+      :key="item.name"
+    >
       <div class="title">{{ item.name }}</div>
       <div class="list">
         <div
@@ -16,6 +21,7 @@
           :class="{
             selected: iconList.includes(item.type + '_' + icon.name)
           }"
+          :title="icon.title || item.name"
           @click="setIcon(item.type, icon.name)"
         ></div>
       </div>
@@ -25,7 +31,10 @@
 
 <script>
 import { nodeIconList as _nodeIconList } from 'simple-mind-map/src/svg/icons'
-import icon from '@/config/icon'
+import icon, {
+  CASE_EXECUTION_ICON_TYPE,
+  findSameExecutionEnvironmentIconIndex
+} from '@/config/icon'
 import { mapState } from 'vuex'
 
 // 节点图标内容设置
@@ -33,6 +42,7 @@ export default {
   data() {
     return {
       dialogVisible: false,
+      caseExecutionIconType: CASE_EXECUTION_ICON_TYPE,
       iconList: [],
       activeNodes: [],
     }
@@ -42,7 +52,18 @@ export default {
       dynamicIconList: state => state.dynamicIconList
     }),
     nodeIconList() {
-      return [..._nodeIconList, ...this.dynamicIconList, ...icon]
+      const executionGroups = icon.filter(
+        item => item.type === CASE_EXECUTION_ICON_TYPE
+      )
+      const otherCustomGroups = icon.filter(
+        item => item.type !== CASE_EXECUTION_ICON_TYPE
+      )
+      return [
+        ..._nodeIconList,
+        ...executionGroups,
+        ...this.dynamicIconList,
+        ...otherCustomGroups
+      ]
     }
   },
   created() {
@@ -81,8 +102,11 @@ export default {
       if (index !== -1) {
         this.iconList.splice(index, 1)
       } else {
+        const executionIndex = findSameExecutionEnvironmentIconIndex(this.iconList, type, name)
         const isBuiltInType = _nodeIconList.some(item => item.type === type)
-        if (isBuiltInType) {
+        if (executionIndex !== -1) {
+          this.iconList.splice(executionIndex, 1, key)
+        } else if (isBuiltInType) {
           let typeIndex = this.iconList.findIndex(item => {
             return item.split('_')[0] === type
           })
@@ -154,6 +178,22 @@ export default {
             border-radius: 50%;
             border: 2px solid #409eff;
           }
+        }
+      }
+
+    }
+
+    &.executionIconGroup {
+      .list .icon {
+        width: 45px;
+        height: 26px;
+
+        &.selected::after {
+          left: -4px;
+          top: -4px;
+          width: 49px;
+          height: 30px;
+          border-radius: 6px;
         }
       }
     }

@@ -148,7 +148,7 @@
             v-for="tag in quickTagList"
             :key="tag"
             :class="{ active: isTagActive(tag) }"
-            :style="{ backgroundColor: generateColorByContent(tag) }"
+            :style="{ backgroundColor: getTagColor(tag) }"
             @click="toggleQuickTag(tag)"
           >
             <span class="quickTagText">{{ tag }}</span>
@@ -254,7 +254,7 @@ import { generateColorByContent } from 'simple-mind-map/src/utils/index'
 import NodeAnnotationBtn from './NodeAnnotationBtn.vue'
 
 // 快捷标签预设
-const quickTagList = ['模块', '场景', '测试点', '补充', '待定']
+const quickTagList = ['模块', '场景', '测试点', '待定', '🐛 BUG: #', '🐛 线上BUG: #']
 const maxTag = 5
 
 export default {
@@ -330,6 +330,13 @@ export default {
     ...mapMutations(['setActiveSidebar']),
 
     generateColorByContent,
+
+    getTagColor(tag) {
+      if (tag === '🐛 BUG: #') return 'rgba(245, 108, 108, 1)'
+      if (tag === '🐛 线上BUG: #') return 'rgba(220, 38, 38, 1)'
+      if (tag === '待定') return 'rgba(156, 163, 175, 1)'
+      return generateColorByContent(tag)
+    },
 
     // 监听模式切换
     onModeChange(mode) {

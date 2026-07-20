@@ -1,6 +1,7 @@
 <template>
   <div
     class="nodeIconToolbar"
+    :class="{ executionIconToolbar: iconType === caseExecutionIconType }"
     ref="nodeIconToolbar"
     :style="style"
     @click.stop.passive
@@ -15,6 +16,7 @@
         :class="{
           selected: nodeIconList.includes(iconType + '_' + icon.name)
         }"
+        :title="icon.title || icon.name"
         @click="setIcon(icon.name)"
       ></div>
     </div>
@@ -26,7 +28,10 @@
 
 <script>
 import { nodeIconList as _nodeIconList } from 'simple-mind-map/src/svg/icons'
-import icon from '@/config/icon'
+import icon, {
+  CASE_EXECUTION_ICON_TYPE,
+  findSameExecutionEnvironmentIconIndex
+} from '@/config/icon'
 import { mapState, mapMutations } from 'vuex'
 
 export default {
@@ -38,6 +43,7 @@ export default {
   data() {
     return {
       showNodeIconToolbar: false,
+      caseExecutionIconType: CASE_EXECUTION_ICON_TYPE,
       style: {
         left: 0,
         top: 0
@@ -88,6 +94,10 @@ export default {
         return item.type === this.iconType
       })
       this.iconList = typeData ? [...typeData.list] : []
+      if (this.iconType === CASE_EXECUTION_ICON_TYPE) {
+        const environment = this.iconName.startsWith('pd') ? 'pd' : 'rd'
+        this.iconList = this.iconList.filter(item => item.name.startsWith(environment))
+      }
       this.updatePos()
       this.showNodeIconToolbar = true
       if (this.activeSidebar === 'nodeIconSidebar') {
@@ -146,7 +156,10 @@ export default {
       } else {
         const isBuiltInType = _nodeIconList.some(item => item.type === this.iconType)
         let targetIndex
-        if (isBuiltInType) {
+        const executionIndex = findSameExecutionEnvironmentIconIndex(this.nodeIconList, this.iconType, name)
+        if (this.iconType === CASE_EXECUTION_ICON_TYPE) {
+          targetIndex = executionIndex
+        } else if (isBuiltInType) {
           targetIndex = this.nodeIconList.findIndex(item => item.split('_')[0] === this.iconType)
         } else {
           targetIndex = this.nodeIconList.findIndex(item => item === this.iconType + '_' + this.iconName)
@@ -213,6 +226,21 @@ export default {
           border-radius: 50%;
           border: 2px solid #409eff;
         }
+      }
+    }
+  }
+
+  &.executionIconToolbar {
+    .iconListBox .icon {
+      width: 45px;
+      height: 26px;
+
+      &.selected::after {
+        left: -4px;
+        top: -4px;
+        width: 49px;
+        height: 30px;
+        border-radius: 6px;
       }
     }
   }
