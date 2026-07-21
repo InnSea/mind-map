@@ -196,11 +196,11 @@ export const findSameExecutionEnvironmentIconIndex = (iconList, type, name) => {
 }
 
 export default [
-  {
-    name: '执行状态图标',
-    type: CASE_EXECUTION_ICON_TYPE,
-    list: executionIconList
-  },
+  // {
+  //   name: '执行状态图标',
+  //   type: CASE_EXECUTION_ICON_TYPE,
+  //   list: executionIconList
+  // },
   {
     name: '多彩标记图标', // 分组名称
     type: 'sign2', // 分组的值

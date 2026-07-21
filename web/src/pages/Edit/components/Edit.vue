@@ -123,6 +123,7 @@ import NodeImgPreview from './NodeImgPreview.vue'
 import SidebarTrigger from './SidebarTrigger.vue'
 import { mapState } from 'vuex'
 import icon from '@/config/icon'
+import { buildUserStatusIconGroup } from '@/config/userStatusOverlay'
 import CustomNodeContent from './CustomNodeContent.vue'
 import Color from './Color.vue'
 import Vue from 'vue'
@@ -415,7 +416,12 @@ export default {
           openBlankMode: true
         },
         ...(config || {}),
-        iconList: [...this.preloadedUserIcons, ...icon],
+        iconList: (() => {
+          const list = [...this.preloadedUserIcons, ...icon]
+          const statusGroup = buildUserStatusIconGroup(root, this.preloadedUserIcons)
+          if (statusGroup) list.push(statusGroup)
+          return list
+        })(),
         useLeftKeySelectionRightKeyDrag: this.useLeftKeySelectionRightKeyDrag,
         customInnerElsAppendTo: null,
         customHandleClipboardText: handleClipboardText,
@@ -663,6 +669,7 @@ export default {
         this.mindMap.setData(data)
         rootNodeData = data
       }
+      this.syncUserStatusIcons(rootNodeData)
       this.mindMap.view.reset()
       // this.manualSave()
       // 如果导入的是富文本内容，那么自动开启富文本模式
@@ -673,6 +680,16 @@ export default {
           message: this.$t('edit.autoOpenNodeRichTextTip')
         })
       }
+    },
+
+    // 同步用户状态覆盖图标到 mindMap.opt.iconList
+    syncUserStatusIcons(rootData) {
+      if (!this.mindMap || !Array.isArray(this.preloadedUserIcons)) return
+      const list = this.mindMap.opt.iconList
+      const existIdx = list.findIndex(item => item.type === 'userStatus')
+      if (existIdx !== -1) list.splice(existIdx, 1)
+      const statusGroup = buildUserStatusIconGroup(rootData, this.preloadedUserIcons)
+      if (statusGroup) list.push(statusGroup)
     },
 
     // 重新渲染
