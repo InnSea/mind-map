@@ -173,7 +173,7 @@ const createExecutionIcon = (environment, result) => {
     result === 'passed'
       ? '<path d="M66 31l7 7 14-16" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>'
       : '<path d="M68 22l16 16M84 22L68 38" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>'
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 102 60" data-width-ratio="1.7" data-height-ratio="1.1">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 102 60" data-width-ratio="1.7" data-height-ratio="2">
     <rect x="2" y="5" width="98" height="50" rx="9" fill="#fff" stroke="#CBD5E1" stroke-width="2.5"/>
     <rect x="7" y="10" width="45" height="40" rx="6" fill="${environmentBackground}"/>
     <text x="29.5" y="31" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="${environmentColor}" text-anchor="middle" dominant-baseline="middle">${environment}</text>

@@ -94,6 +94,17 @@ export default {
         return item.type === this.iconType
       })
       this.iconList = typeData ? [...typeData.list] : []
+      // 用户图标：根据选中的用户，只展示其所在分组的其他用户图标
+      if (this.iconType === 'user') {
+        const userGroup = this.allIconList.find(item =>
+          item.type.startsWith('userGroup') &&
+          item.list.some(u => u.name === this.iconName)
+        )
+        if (userGroup) {
+          const groupUids = new Set(userGroup.list.map(u => u.name))
+          this.iconList = this.iconList.filter(item => groupUids.has(item.name))
+        }
+      }
       if (this.iconType === CASE_EXECUTION_ICON_TYPE) {
         const environment = this.iconName.startsWith('pd') ? 'pd' : 'rd'
         this.iconList = this.iconList.filter(item => item.name.startsWith(environment))
