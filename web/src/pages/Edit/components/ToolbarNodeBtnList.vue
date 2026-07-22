@@ -251,6 +251,7 @@
 <script>
 import { mapState, mapMutations } from 'vuex'
 import { generateColorByContent } from 'simple-mind-map/src/utils/index'
+import { nodeTagColorMap } from '@/config/nodeTag'
 import NodeAnnotationBtn from './NodeAnnotationBtn.vue'
 
 // 快捷标签预设
@@ -332,10 +333,7 @@ export default {
     generateColorByContent,
 
     getTagColor(tag) {
-      if (tag === '🐛 BUG: #') return 'rgba(245, 108, 108, 1)'
-      if (tag === '🐛 线上BUG: #') return 'rgba(220, 38, 38, 1)'
-      if (tag === '待定') return 'rgba(156, 163, 175, 1)'
-      return generateColorByContent(tag)
+      return nodeTagColorMap[tag] || generateColorByContent(tag)
     },
 
     // 监听模式切换

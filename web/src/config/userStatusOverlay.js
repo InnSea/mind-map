@@ -24,6 +24,7 @@ export function generateStatusOverlaySvg(userIconSvg, env, resultColor) {
 
 // 从节点数据中扫描 userStatus_* 图标，生成 status group 用于初始化 iconList
 export function buildUserStatusIconGroup(rootData, userIconGroups) {
+  if (!rootData || !Array.isArray(userIconGroups)) return null
   const userIconMap = {}
   userIconGroups.forEach(group => {
     if (group.type.startsWith('user') && group.type !== 'userStatus') {
@@ -39,6 +40,7 @@ export function buildUserStatusIconGroup(rootData, userIconGroups) {
   const seen = new Set()
 
   function walk(node) {
+    if (!node) return
     const icons = node.data && node.data.icon
     if (Array.isArray(icons)) {
       icons.forEach(key => {

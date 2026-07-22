@@ -123,6 +123,7 @@ import NodeImgPreview from './NodeImgPreview.vue'
 import SidebarTrigger from './SidebarTrigger.vue'
 import { mapState } from 'vuex'
 import icon from '@/config/icon'
+import { nodeTagColorMap } from '@/config/nodeTag'
 import { buildUserStatusIconGroup } from '@/config/userStatusOverlay'
 import CustomNodeContent from './CustomNodeContent.vue'
 import Color from './Color.vue'
@@ -418,6 +419,10 @@ export default {
           openBlankMode: true
         },
         ...(config || {}),
+        tagsColorMap: {
+          ...nodeTagColorMap,
+          ...((config && config.tagsColorMap) || {})
+        },
         iconList: (() => {
           const list = [...this.preloadedUserIcons, ...icon]
           const statusGroup = buildUserStatusIconGroup(root, this.preloadedUserIcons)

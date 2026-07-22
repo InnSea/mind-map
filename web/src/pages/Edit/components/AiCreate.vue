@@ -38,16 +38,58 @@
     <!-- ai内容输入弹窗 -->
     <el-dialog
       class="createDialog"
+      :class="{ isDark }"
       :title="$t('ai.createMindMapTitle')"
       :visible.sync="createDialogVisible"
-      width="450px"
+      :width="platformAiContext ? '560px' : '450px'"
       append-to-body
     >
       <div class="inputBox">
+        <div v-if="platformAiContext" class="wikiSection">
+          <div class="wikiHeader">
+            <div>
+              <div class="wikiTitle">关联 Wiki 文档</div>
+              <div class="wikiSubtitle">选择本次生成需要参考的需求文档</div>
+            </div>
+            <el-checkbox
+              v-if="platformWikiFiles.length"
+              :indeterminate="wikiSelectionIndeterminate"
+              :value="allProcessedWikiSelected"
+              @change="toggleAllWiki"
+            >全选</el-checkbox>
+          </div>
+          <el-checkbox-group
+            v-if="platformWikiFiles.length"
+            v-model="selectedWikiIds"
+            class="wikiList"
+          >
+            <label
+              v-for="wiki in platformWikiFiles"
+              :key="wiki.id"
+              class="wikiItem"
+              :class="{ unavailable: !wiki.processed }"
+            >
+              <el-checkbox :label="wiki.id" :disabled="!wiki.processed">
+                <span class="wikiName">{{ wiki.fileName }}</span>
+              </el-checkbox>
+              <span class="wikiMeta">
+                <i :class="wiki.type === 'page' ? 'el-icon-link' : 'el-icon-document'" />
+                {{ wiki.processed ? '已就绪' : '处理中' }}
+              </span>
+            </label>
+          </el-checkbox-group>
+          <div v-else class="wikiEmpty">
+            <i class="el-icon-document" />
+            当前导图未关联 Wiki 文档
+          </div>
+        </div>
+        <div v-if="platformAiContext" class="promptLabel">补充生成要求（可选）</div>
         <el-input
           type="textarea"
-          :rows="5"
-          :placeholder="$t('ai.createTip')"
+          :rows="platformAiContext ? 4 : 5"
+          :placeholder="platformAiContext ? '例如：重点覆盖权限、弱网和异常状态流转' : $t('ai.createTip')"
+          :maxlength="platformAiContext ? 2000 : undefined"
+          :show-word-limit="Boolean(platformAiContext)"
           v-model="aiInput"
         >
         </el-input>
@@ -67,12 +109,57 @@
     <!-- ai生成中添加一个透明层，防止期间用户进行操作 -->
     <div
       class="aiCreatingMask"
+      :class="{ isDark }"
       ref="aiCreatingMaskRef"
       v-show="aiCreatingMaskVisible"
     >
-      <el-button type="warning" class="btn" @click="stopCreate">{{
-        $t('ai.stopGenerating')
-      }}</el-button>
+      <div class="creatingStatus">
+        <div class="creatingHeader">
+          <div class="creatingIdentity">
+            <div class="creatingHeading">
+              <strong>AI 正在生成导图</strong>
+              <span>{{ generationElapsedText }}</span>
+            </div>
+          </div>
+          <el-button
+            class="stopGeneratingButton"
+            size="mini"
+            :aria-label="$t('ai.stopGenerating')"
+            @click="stopCreate"
+          >
+            <i class="el-icon-close" />
+            <span>{{ $t('ai.stopGenerating') }}</span>
+          </el-button>
+        </div>
+        <div v-if="platformAiContext" class="generationSteps">
+          <span class="stepTrack">
+            <span :style="generationTimelineProgressStyle" />
+          </span>
+          <div
+            v-for="(step, index) in generationSteps"
+            :key="step.key"
+            class="generationStep"
+            :class="{
+              done: index < generationStageIndex,
+              active: index === generationStageIndex
+            }"
+          >
+            <span class="stepMarker">
+              <i v-if="index < generationStageIndex" class="el-icon-check" />
+            </span>
+            <span class="stepLabel">{{ step.label }}</span>
+          </div>
+        </div>
+        <div class="generationActivity">
+          <span class="activityDot" />
+          <span class="activityText" role="status" aria-live="polite">
+            {{ generationStatus || '正在准备生成内容' }}
+          </span>
+          <span v-if="generatedNodeCount" class="nodeCount">
+            {{ generatedNodeCount }} 个节点
+          </span>
+        </div>
+      </div>
     </div>
     <!-- AI续写 -->
     <el-dialog
@@ -107,6 +194,23 @@ import {
   getStrWithBrFromHtml
 } from 'simple-mind-map/src/utils'
 
+const aiStructureTags = {
+  1: '模块',
+  2: '场景',
+  3: '测试点'
+}
+const aiMarkerTagMap = {
+  P0: 'P0',
+  P1: 'P1',
+  P2: 'P2',
+  P3: 'P3',
+  核心: '核心',
+  高风险: '高风险',
+  需确认: '待定',
+  知识补充: '知识补充'
+}
+const aiTagMarkerPattern = /\[(P[0-3]|核心|高风险|需确认|知识补充)\]/g
+
 export default {
   props: {
     mindMap: {
@@ -127,6 +231,14 @@ export default {
       createDialogVisible: false,
       aiInput: '',
       aiCreatingMaskVisible: false,
+      platformAiContext: null,
+      selectedWikiIds: [],
+      generationStatus: '',
+      generationStage: 'reading',
+      generationElapsedSeconds: 0,
+      generationTimer: null,
+      generationFailed: false,
+      fullGenerationDataCache: '',
 
       mindMapDataCache: '',
       beingAiCreateNodeUid: '',
@@ -150,6 +262,64 @@ export default {
     this.$bus.$off('ai_create_part', this.showAiCreatePartDialog)
     this.$bus.$off('ai_chat', this.aiChat)
     this.$bus.$off('ai_chat_stop', this.aiChatStop)
+    this.stopGenerationTimer()
+  },
+  computed: {
+    isDark() {
+      return this.$store.state.localConfig.isDark
+    },
+    platformWikiFiles() {
+      return (this.platformAiContext && this.platformAiContext.wikiFiles) || []
+    },
+    processedWikiIds() {
+      return this.platformWikiFiles
+        .filter(item => item.processed)
+        .map(item => item.id)
+    },
+    allProcessedWikiSelected() {
+      return (
+        this.processedWikiIds.length > 0 &&
+        this.processedWikiIds.every(id => this.selectedWikiIds.includes(id))
+      )
+    },
+    wikiSelectionIndeterminate() {
+      const count = this.selectedWikiIds.length
+      return count > 0 && count < this.processedWikiIds.length
+    },
+    generationSteps() {
+      return [
+        { key: 'reading', label: '读取需求' },
+        { key: 'retrieving', label: '检索知识' },
+        { key: 'organizing', label: '整理上下文' },
+        { key: 'generating', label: '生成节点' }
+      ]
+    },
+    generationStageIndex() {
+      const index = this.generationSteps.findIndex(
+        step => step.key === this.generationStage
+      )
+      return index === -1 ? 0 : index
+    },
+    generationTimelineProgressStyle() {
+      const maxIndex = Math.max(this.generationSteps.length - 1, 1)
+      return {
+        width: `${(this.generationStageIndex / maxIndex) * 100}%`
+      }
+    },
+    generationElapsedText() {
+      const seconds = this.generationElapsedSeconds
+      if (seconds < 1) return '刚刚开始'
+      if (seconds < 60) return `已用时 ${seconds} 秒`
+      const minutes = Math.floor(seconds / 60)
+      const restSeconds = seconds % 60
+      return `已用时 ${minutes} 分 ${restSeconds} 秒`
+    },
+    generatedNodeCount() {
+      if (!this.aiCreatingContent) return 0
+      return this.aiCreatingContent
+        .split('\n')
+        .filter(line => /^\s*(?:#\s+|-\s+)/.test(line)).length
+    }
   },
   methods: {
     // 客户端连接检测
@@ -187,6 +357,27 @@ export default {
 
     // AI生成整体
     async aiCrateAll() {
+      const getContext = window.takeOverApp && window.parent.getAiMindmapContext
+      if (typeof getContext === 'function') {
+        try {
+          const context = await getContext()
+          if (!context || !context.canGenerate) {
+            this.$message.warning('当前状态下不可使用 AI 覆盖生成导图')
+            return
+          }
+          this.platformAiContext = context
+          this.selectedWikiIds = (context.wikiFiles || [])
+            .filter(item => item.processed)
+            .map(item => item.id)
+          this.createDialogVisible = true
+          return
+        } catch (error) {
+          console.log(error)
+          this.$message.error('获取导图 Wiki 信息失败')
+          return
+        }
+      }
+      this.platformAiContext = null
       try {
         await this.aiTest()
         this.createDialogVisible = true
@@ -201,14 +392,23 @@ export default {
       this.aiInput = ''
     },
 
+    toggleAllWiki(checked) {
+      this.selectedWikiIds = checked ? [...this.processedWikiIds] : []
+    },
+
     // 确认生成
     doAiCreate() {
       const aiInputText = this.aiInput.trim()
-      if (!aiInputText) {
+      if (!aiInputText && this.selectedWikiIds.length === 0) {
         this.$message.warning(this.$t('ai.noInputTip'))
         return
       }
+      if (this.platformAiContext) {
+        this.doPlatformAiCreate(aiInputText)
+        return
+      }
       this.closeAiCreateDialog()
+      this.startGenerationProgress('generating', '正在生成导图结构与测试节点')
       this.aiCreatingMaskVisible = true
       // 发起请求
       this.isAiCreating = true
@@ -239,6 +439,7 @@ export default {
         content => {
           this.aiCreatingContent = content
           this.resetOnAiCreatingStop()
+          this.loopRenderOnAiCreating(true)
         },
         () => {
           this.resetOnAiCreatingStop()
@@ -248,11 +449,106 @@ export default {
       )
     },
 
+    doPlatformAiCreate(aiInputText) {
+      const generate = window.parent.generateMindmapWithAi
+      if (typeof generate !== 'function') {
+        this.$message.error('平台 AI 生成服务不可用')
+        return
+      }
+      const payload = {
+        mindmap_id: this.platformAiContext.mindmapId,
+        prompt: aiInputText || null,
+        wiki_file_ids: [...this.selectedWikiIds]
+      }
+      this.closeAiCreateDialog()
+      this.startGenerationProgress('reading', '正在读取已选择的 Wiki 需求')
+      this.generationFailed = false
+      this.aiCreatingContent = ''
+      this.fullGenerationDataCache = JSON.stringify(this.mindMap.getData())
+      this.aiCreatingMaskVisible = true
+      this.isAiCreating = true
+      this.mindMap.renderer.setRootNodeCenter()
+      this.mindMap.setData({
+        data: { text: '', expand: true, uid: createUid() },
+        children: []
+      })
+
+      const stream = generate(payload, {
+        onStatus: data => {
+          this.generationStatus = data.message || this.generationStatus
+          this.generationStage = data.stage || this.generationStage
+        },
+        onDelta: data => {
+          if (!data.content) return
+          this.generationStage = 'generating'
+          this.generationStatus = '正在生成导图结构与测试节点'
+          this.aiCreatingContent += data.content
+          this.loopRenderOnAiCreating()
+        },
+        onError: data => {
+          this.generationFailed = true
+          this.restorePlatformGenerationData()
+          this.resetOnAiCreatingStop()
+          this.resetOnRenderEnd()
+          this.$message.error(data.message || this.$t('ai.generationFailed'))
+        },
+        onDone: () => {
+          if (this.generationFailed) return
+          if (!this.aiCreatingContent.trim()) {
+            this.restorePlatformGenerationData()
+            this.resetOnAiCreatingStop()
+            this.resetOnRenderEnd()
+            this.$message.error(this.$t('ai.generationFailed'))
+            return
+          }
+          this.resetOnAiCreatingStop()
+          this.loopRenderOnAiCreating(true)
+        }
+      })
+      this.aiInstance = {
+        stop: () => stream && stream.abort && stream.abort()
+      }
+    },
+
+    restorePlatformGenerationData() {
+      if (!this.fullGenerationDataCache) return
+      try {
+        this.mindMap.setData(JSON.parse(this.fullGenerationDataCache))
+      } catch (error) {
+        console.log(error)
+      }
+      this.fullGenerationDataCache = ''
+    },
+
+    startGenerationProgress(stage, status) {
+      this.stopGenerationTimer()
+      this.generationStage = stage
+      this.generationStatus = status
+      this.generationElapsedSeconds = 0
+      const startedAt = Date.now()
+      this.generationTimer = window.setInterval(() => {
+        this.generationElapsedSeconds = Math.floor(
+          (Date.now() - startedAt) / 1000
+        )
+      }, 1000)
+    },
+
+    stopGenerationTimer() {
+      if (this.generationTimer) {
+        window.clearInterval(this.generationTimer)
+        this.generationTimer = null
+      }
+    },
+
     // AI请求完成或出错后需要复位的数据
     resetOnAiCreatingStop() {
+      this.stopGenerationTimer()
       this.aiCreatingMaskVisible = false
       this.isAiCreating = false
       this.aiInstance = null
+      this.generationStatus = ''
+      this.generationStage = 'reading'
+      this.generationElapsedSeconds = 0
     },
 
     // 渲染结束后需要复位的数据
@@ -261,6 +557,7 @@ export default {
       this.uidMap = {}
       this.aiCreatingContent = ''
       this.mindMapDataCache = ''
+      this.fullGenerationDataCache = ''
       this.beingAiCreateNodeUid = ''
     },
 
@@ -269,15 +566,68 @@ export default {
       if (this.aiInstance) {
         this.aiInstance.stop()
       }
+      if (!this.aiCreatingContent.trim()) {
+        this.restorePlatformGenerationData()
+      }
       this.resetOnAiCreatingStop()
       this.$message.success(this.$t('ai.stoppedGenerating'))
     },
 
     // 轮询进行渲染
-    loopRenderOnAiCreating() {
+    parseAiCreatingTree() {
+      let content = this.aiCreatingContent
+      if (this.isAiCreating && !content.endsWith('\n')) {
+        content = content.slice(0, content.lastIndexOf('\n') + 1)
+      }
+      if (!content.trim()) return null
+      try {
+        const normalize = (node, depth = 0) => {
+          if (!node || !node.data) return null
+          const markerTags = []
+          const text = String(node.data.text || '')
+            .replace(aiTagMarkerPattern, (match, marker) => {
+              const tag = aiMarkerTagMap[marker]
+              if (tag && !markerTags.includes(tag)) markerTags.push(tag)
+              return ''
+            })
+            .replace(/\s{2,}/g, ' ')
+            .trim()
+          if (!text) return null
+          const isTestPoint = markerTags.some(tag => /^P[0-3]$/.test(tag))
+          const structureTag = isTestPoint
+            ? '测试点'
+            : aiStructureTags[depth]
+          const tags = structureTag
+            ? [structureTag, ...markerTags]
+            : markerTags
+          const data = { ...node.data, text }
+          if (tags.length) data.tag = tags.slice(0, 5)
+          return {
+            ...node,
+            data,
+            children: (Array.isArray(node.children) ? node.children : [])
+              .map(child => normalize(child, depth + 1))
+              .filter(Boolean)
+          }
+        }
+        return normalize(transformMarkdownTo(content))
+      } catch (error) {
+        return null
+      }
+    },
+
+    loopRenderOnAiCreating(showInvalidError = false) {
       if (!this.aiCreatingContent.trim() || this.isLoopRendering) return
+      const treeData = this.parseAiCreatingTree()
+      if (!treeData) {
+        if (showInvalidError) {
+          this.restorePlatformGenerationData()
+          this.resetOnRenderEnd()
+          this.$message.error('AI 返回的导图格式无效，请重新生成')
+        }
+        return
+      }
       this.isLoopRendering = true
-      const treeData = transformMarkdownTo(this.aiCreatingContent)
       this.addUid(treeData)
       let lastTreeData = JSON.stringify(treeData)
 
@@ -293,7 +643,13 @@ export default {
           return
         }
 
-        const treeData = transformMarkdownTo(this.aiCreatingContent)
+        const treeData = this.parseAiCreatingTree()
+        if (!treeData) {
+          setTimeout(() => {
+            onRenderEnd()
+          }, 300)
+          return
+        }
         this.addUid(treeData)
         // 正在生成中
         if (this.isAiCreating) {
@@ -468,6 +824,7 @@ export default {
             this.aiCreatingContent = content
             this.resetOnAiCreatingStop()
             this.resetAiCreatePartDialog()
+            this.loopRenderOnAiCreatingPart()
           },
           () => {
             this.resetOnAiCreatingStop()
@@ -505,8 +862,9 @@ export default {
     // 轮询进行部分渲染
     loopRenderOnAiCreatingPart() {
       if (!this.aiCreatingContent.trim() || this.isLoopRendering) return
+      const partData = this.parseAiCreatingTree()
+      if (!partData) return
       this.isLoopRendering = true
-      const partData = transformMarkdownTo(this.aiCreatingContent)
       this.addUid(partData)
       let lastPartData = JSON.stringify(partData)
       const treeData = this.addToTargetNode(partData.children || [])
@@ -523,7 +881,13 @@ export default {
           return
         }
 
-        const partData = transformMarkdownTo(this.aiCreatingContent)
+        const partData = this.parseAiCreatingTree()
+        if (!partData) {
+          setTimeout(() => {
+            onRenderEnd()
+          }, 300)
+          return
+        }
         this.addUid(partData)
         const treeData = this.addToTargetNode(partData.children || [])
 
@@ -600,6 +964,10 @@ export default {
 <style lang="less" scoped>
 .clientTipDialog,
 .createDialog {
+  /deep/ .el-dialog {
+    max-width: calc(100vw - 32px);
+  }
+
   /deep/ .el-dialog__body {
     padding: 12px 20px;
   }
@@ -616,12 +984,158 @@ export default {
 }
 
 .inputBox {
+  .wikiSection {
+    margin-bottom: 18px;
+  }
+
+  .wikiHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .wikiTitle,
+  .promptLabel {
+    color: #303133;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .wikiSubtitle {
+    margin-top: 3px;
+    color: #909399;
+    font-size: 12px;
+  }
+
+  .promptLabel {
+    margin-bottom: 8px;
+  }
+
+  .wikiList {
+    max-height: 210px;
+    overflow-y: auto;
+    border: 1px solid #e4e7ed;
+    border-radius: 4px;
+  }
+
+  .wikiEmpty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 64px;
+    border: 1px dashed #dcdfe6;
+    border-radius: 4px;
+    color: #909399;
+    font-size: 13px;
+
+    i {
+      margin-right: 6px;
+    }
+  }
+
+  .wikiItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 36px;
+    padding: 0 12px;
+    border-bottom: 1px solid #ebeef5;
+    cursor: pointer;
+    box-sizing: border-box;
+
+    &:last-child {
+      border-bottom: 0;
+    }
+
+    &:hover {
+      background: #f5f7fa;
+    }
+
+    &.unavailable {
+      cursor: not-allowed;
+      background: #fafafa;
+    }
+  }
+
+  .wikiName {
+    display: inline-block;
+    max-width: 330px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .wikiMeta {
+    flex: 0 0 auto;
+    margin-left: 12px;
+    color: #909399;
+    font-size: 12px;
+  }
+
   .tip {
     margin-top: 12px;
 
     &.warning {
       color: #f56c6c;
     }
+  }
+}
+
+.createDialog.isDark {
+  .inputBox {
+    .wikiTitle,
+    .promptLabel {
+      color: #e5e7eb;
+    }
+
+    .wikiSubtitle,
+    .wikiMeta,
+    .wikiEmpty {
+      color: #a7abb2;
+    }
+
+    .wikiList {
+      border-color: #4c5159;
+      background: #30343a;
+    }
+
+    .wikiEmpty {
+      border-color: #555b64;
+      background: #30343a;
+    }
+
+    .wikiItem {
+      border-color: #454a52;
+
+      &:hover {
+        background: #3a3f46;
+      }
+
+      &.unavailable {
+        background: #2b2f34;
+      }
+    }
+  }
+
+  /deep/ .el-checkbox__label {
+    color: #d8dbe0;
+  }
+
+  /deep/ .el-textarea__inner {
+    border-color: #555b64;
+    background: #343940;
+    color: #e5e7eb;
+
+    &::placeholder {
+      color: #989da5;
+    }
+  }
+
+  /deep/ .el-input__count {
+    background: transparent;
+    color: #a7abb2;
   }
 }
 
@@ -634,11 +1148,328 @@ export default {
   z-index: 99999;
   background-color: transparent;
 
-  .btn {
+  .creatingStatus {
     position: absolute;
     left: 50%;
-    top: 100px;
+    top: 116px;
     transform: translateX(-50%);
+    width: 480px;
+    max-width: calc(100vw - 32px);
+    padding: 17px 18px 10px;
+    overflow: hidden;
+    border: 1px solid #dce4ed;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.98);
+    color: #303133;
+    box-shadow:
+      0 16px 34px rgba(31, 45, 61, 0.13),
+      0 3px 8px rgba(31, 45, 61, 0.06);
+    box-sizing: border-box;
+    backdrop-filter: blur(10px);
+  }
+
+  .creatingHeader,
+  .creatingIdentity,
+  .generationActivity {
+    display: flex;
+    align-items: center;
+  }
+
+  .creatingHeader {
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .creatingIdentity {
+    min-width: 0;
+    padding-left: 2px;
+  }
+
+  .creatingHeading {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+
+    strong {
+      overflow: hidden;
+      color: #1f2937;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 20px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    span {
+      color: #8a919e;
+      font-size: 12px;
+      line-height: 16px;
+    }
+  }
+
+  .stopGeneratingButton {
+    flex: 0 0 auto;
+    height: 31px;
+    padding: 0 11px;
+    border-color: #d6dde6;
+    border-radius: 5px;
+    background: transparent;
+    color: #606975;
+
+    i {
+      margin-right: 4px;
+    }
+
+    &:hover,
+    &:focus {
+      border-color: #e07171;
+      background: #fff5f5;
+      color: #c84f4f;
+    }
+  }
+
+  .generationSteps {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 20px 2px 16px;
+  }
+
+  .stepTrack {
+    position: absolute;
+    top: 8px;
+    right: 12.5%;
+    left: 12.5%;
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: #e3e8ef;
+
+    span {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: #78a9db;
+      transition: width 280ms ease;
+    }
+  }
+
+  .generationStep {
+    position: relative;
+    display: flex;
+    z-index: 1;
+    align-items: center;
+    justify-content: flex-start;
+    min-width: 0;
+    flex-direction: column;
+    gap: 8px;
+    color: #a1a8b2;
+    font-size: 12px;
+
+    &.done,
+    &.active {
+      color: #2d6fb5;
+    }
+
+    &.active .stepMarker {
+      border-color: #2d6fb5;
+      background: #fff;
+      animation: activeStepPulse 1.6s ease-in-out infinite;
+
+      &::after {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #2d6fb5;
+        content: '';
+        animation: activeStepDot 1.6s ease-in-out infinite;
+      }
+    }
+
+    &.done .stepMarker {
+      border-color: #78a9db;
+      background: #78a9db;
+      color: #fff;
+    }
+  }
+
+  .stepMarker {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    flex: 0 0 18px;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 1px solid #cbd1d9;
+    border-radius: 50%;
+    background: #fff;
+    box-sizing: border-box;
+    font-size: 10px;
+  }
+
+  .stepLabel {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    line-height: 18px;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .generationActivity {
+    min-height: 22px;
+    padding-top: 13px;
+    border-top: 1px solid #edf0f4;
+    color: #68717d;
+    font-size: 13px;
+    line-height: 20px;
+  }
+
+  .activityDot {
+    flex: 0 0 6px;
+    width: 6px;
+    height: 6px;
+    margin: 0 9px 0 3px;
+    border-radius: 50%;
+    background: #2d6fb5;
+    box-shadow: 0 0 0 3px rgba(45, 111, 181, 0.12);
+  }
+
+  .activityText {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nodeCount {
+    flex: 0 0 auto;
+    margin-left: 12px;
+    color: #8a919e;
+    font-size: 12px;
+  }
+
+  &.isDark {
+    .creatingStatus {
+      border-color: #464d56;
+      background: rgba(38, 42, 47, 0.97);
+      color: #e5e7eb;
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34);
+    }
+
+    .creatingHeading strong {
+      color: #f0f2f5;
+    }
+
+    .creatingHeading span,
+    .nodeCount {
+      color: #9299a3;
+    }
+
+    .stopGeneratingButton {
+      border-color: #555c65;
+      color: #c7cbd1;
+
+      &:hover,
+      &:focus {
+        border-color: #b86565;
+        background: #432f32;
+        color: #eeaaaa;
+      }
+    }
+
+    .stepTrack {
+      background: #4a515a;
+
+      span {
+        background: #638fb9;
+      }
+    }
+
+    .stepMarker {
+      border-color: #606771;
+      background: #262a2f;
+    }
+
+    .generationStep.done .stepMarker {
+      border-color: #638fb9;
+      background: #638fb9;
+      color: #fff;
+    }
+
+    .generationStep.active .stepMarker {
+      background: #262a2f;
+
+      &::after {
+        background: #70a9df;
+      }
+    }
+
+    .generationActivity {
+      border-color: #454b53;
+      color: #c2c7ce;
+    }
+
+  }
+
+  @media (max-width: 520px) {
+    .creatingStatus {
+      top: 96px;
+      padding: 13px 14px 16px;
+    }
+
+    .generationSteps {
+      margin-top: 15px;
+    }
+
+    .stepLabel {
+      font-size: 11px;
+    }
+
+    .stopGeneratingButton span {
+      display: none;
+    }
+
+    .stopGeneratingButton i {
+      margin-right: 0;
+    }
+  }
+}
+
+@keyframes activeStepPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(45, 111, 181, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(45, 111, 181, 0.16);
+  }
+}
+
+@keyframes activeStepDot {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aiCreatingMask {
+    .generationStep.active .stepMarker,
+    .generationStep.active .stepMarker::after {
+      animation: none;
+    }
   }
 }
 </style>
