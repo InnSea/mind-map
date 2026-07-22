@@ -312,6 +312,8 @@ export default {
     this.$bus.$off('showLoading', this.handleShowLoading)
     window.removeEventListener('resize', this.handleResize)
     this.closeVideoActionMenu()
+    this.mindMap.off('before_set_data', this.syncUserStatusIcons)
+    this.mindMap.off('incremental_sync_before_render', this.syncUserStatusIcons)
     this.mindMap.destroy()
   },
   methods: {
@@ -522,6 +524,8 @@ export default {
           }
         }
       })
+      this.mindMap.on('before_set_data', this.syncUserStatusIcons)
+      this.mindMap.on('incremental_sync_before_render', this.syncUserStatusIcons)
       this.loadPlugins()
       this.mindMap.keyCommand.addShortcut('Control+s', () => {
         this.$bus.$emit('handle_save')
@@ -669,7 +673,6 @@ export default {
         this.mindMap.setData(data)
         rootNodeData = data
       }
-      this.syncUserStatusIcons(rootNodeData)
       this.mindMap.view.reset()
       // this.manualSave()
       // 如果导入的是富文本内容，那么自动开启富文本模式
