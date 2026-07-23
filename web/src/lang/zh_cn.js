@@ -485,7 +485,7 @@ export default {
       '3.如果已经安装并启动了，那么可以尝试关闭然后重新启动。',
     connectFailedCheckTip4: '完成以上步骤后可点击：',
     baiduNetdisk: '百度网盘',
-    createMindMapTitle: '一键生成思维导图',
+    createMindMapTitle: 'AI 生成思维导图',
     createTip:
       '请输入一个主题，AI会根据你的主题生成思维导图。',
     importantTip: '重要提示：一键生成会覆盖现有数据，建议先导出当前数据。',
@@ -493,7 +493,7 @@ export default {
     modifyAIConfiguration: '修改AI配置',
     chatInputPlaceholder: 'Enter 发送，Shift + Enter 换行。',
     send: '发送',
-    stopGenerating: '停止生成',
+    stopGenerating: '停止',
     generationFailed: '生成失败',
     aiGenerationSuccess: 'AI生成完成',
     stoppedGenerating: '已停止生成',

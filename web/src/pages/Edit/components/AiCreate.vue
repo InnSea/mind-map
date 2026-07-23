@@ -194,22 +194,18 @@ import {
   getStrWithBrFromHtml
 } from 'simple-mind-map/src/utils'
 
-const aiStructureTags = {
-  1: '模块',
-  2: '场景',
-  3: '测试点'
-}
 const aiMarkerTagMap = {
   P0: 'P0',
   P1: 'P1',
   P2: 'P2',
   P3: 'P3',
-  核心: '核心',
-  高风险: '高风险',
   需确认: '待定',
-  知识补充: '知识补充'
+  前置条件: '前置条件',
+  测试数据: '测试数据',
+  操作步骤: '操作步骤',
+  预期结果: '预期结果'
 }
-const aiTagMarkerPattern = /\[(P[0-3]|核心|高风险|需确认|知识补充)\]/g
+const aiTagMarkerPattern = /\[(P[0-3]|需确认|前置条件|测试数据|操作步骤|预期结果)\]/g
 
 export default {
   props: {
@@ -581,7 +577,7 @@ export default {
       }
       if (!content.trim()) return null
       try {
-        const normalize = (node, depth = 0) => {
+        const normalize = node => {
           if (!node || !node.data) return null
           const markerTags = []
           const text = String(node.data.text || '')
@@ -593,20 +589,13 @@ export default {
             .replace(/\s{2,}/g, ' ')
             .trim()
           if (!text) return null
-          const isTestPoint = markerTags.some(tag => /^P[0-3]$/.test(tag))
-          const structureTag = isTestPoint
-            ? '测试点'
-            : aiStructureTags[depth]
-          const tags = structureTag
-            ? [structureTag, ...markerTags]
-            : markerTags
           const data = { ...node.data, text }
-          if (tags.length) data.tag = tags.slice(0, 5)
+          if (markerTags.length) data.tag = markerTags.slice(0, 5)
           return {
             ...node,
             data,
             children: (Array.isArray(node.children) ? node.children : [])
-              .map(child => normalize(child, depth + 1))
+              .map(child => normalize(child))
               .filter(Boolean)
           }
         }
