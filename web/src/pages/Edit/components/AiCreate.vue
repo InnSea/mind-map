@@ -170,7 +170,16 @@
       append-to-body
     >
       <div class="inputBox">
-        <el-input type="textarea" :rows="5" v-model="aiPartInput"> </el-input>
+        <div class="promptLabel">补充续写要求（可选）</div>
+        <el-input
+          type="textarea"
+          :rows="5"
+          maxlength="2000"
+          show-word-limit
+          placeholder="例如：补充权限不足和重复操作场景；留空则根据当前节点自动续写"
+          v-model="aiPartInput"
+        >
+        </el-input>
       </div>
       <div slot="footer" class="dialog-footer">
         <el-button size="mini" @click="closeAiCreatePartDialog">{{
@@ -206,6 +215,27 @@ const aiMarkerTagMap = {
   预期结果: '预期结果'
 }
 const aiTagMarkerPattern = /\[(P[0-3]|需确认|前置条件|测试数据|操作步骤|预期结果)\]/g
+const aiContinuationRoleTransitions = {
+  structural: ['structural', 'test_case'],
+  test_case: ['precondition', 'test_data', 'operation'],
+  precondition: ['test_data', 'operation'],
+  test_data: ['operation'],
+  operation: ['expected_result', 'operation'],
+  expected_result: ['operation']
+}
+
+const getAiNodeRole = data => {
+  const tags = Array.isArray(data && data.tag) ? data.tag : []
+  const tagTexts = tags.map(tag =>
+    typeof tag === 'string' ? tag : tag && (tag.text || tag.label || tag.name)
+  )
+  if (tagTexts.includes('前置条件')) return 'precondition'
+  if (tagTexts.includes('测试数据')) return 'test_data'
+  if (tagTexts.includes('操作步骤')) return 'operation'
+  if (tagTexts.includes('预期结果')) return 'expected_result'
+  if (tagTexts.some(tag => /^P[0-3]$/.test(tag || ''))) return 'test_case'
+  return 'structural'
+}
 
 export default {
   props: {
@@ -238,6 +268,7 @@ export default {
 
       mindMapDataCache: '',
       beingAiCreateNodeUid: '',
+      beingAiCreateNodeRole: '',
 
       createPartDialogVisible: false,
       aiPartInput: '',
@@ -285,7 +316,7 @@ export default {
     generationSteps() {
       return [
         { key: 'reading', label: '读取需求' },
-        { key: 'retrieving', label: '检索知识' },
+        { key: 'retrieving', label: '检索知识库' },
         { key: 'organizing', label: '整理上下文' },
         { key: 'generating', label: '生成节点' }
       ]
@@ -555,6 +586,7 @@ export default {
       this.mindMapDataCache = ''
       this.fullGenerationDataCache = ''
       this.beingAiCreateNodeUid = ''
+      this.beingAiCreateNodeRole = ''
     },
 
     // 停止生成
@@ -745,17 +777,28 @@ export default {
     },
 
     // 显示AI续写弹窗
-    showAiCreatePartDialog(node) {
+    async showAiCreatePartDialog(node) {
       this.beingCreatePartNode = node
-      const nodePath = this.getNodePathToRoot(node)
-      const formattedPath = this.formatNodePath(nodePath)
-      this.aiPartInput = `${this.$t(
-        'ai.aiCreatePartMsgPrefix'
-      )}\n\n从根节点到当前节点的路径结构：\n${formattedPath}\n\n${this.$t(
-        'ai.aiCreatePartMsgCenter'
-      )}${getStrWithBrFromHtml(node.getData('text'))}${this.$t(
-        'ai.aiCreatePartMsgPostfix'
-      )}`
+      this.aiPartInput = ''
+      const getContext = window.takeOverApp && window.parent.getAiMindmapContext
+      if (typeof getContext === 'function') {
+        try {
+          const context = await getContext()
+          if (!context || !context.canGenerate) {
+            this.$message.warning('当前状态下不可使用 AI 续写导图')
+            this.resetAiCreatePartDialog()
+            return
+          }
+          this.platformAiContext = context
+        } catch (error) {
+          console.log(error)
+          this.$message.error('获取导图上下文失败')
+          this.resetAiCreatePartDialog()
+          return
+        }
+      } else {
+        this.platformAiContext = null
+      }
       this.createPartDialogVisible = true
     },
 
@@ -772,7 +815,6 @@ export default {
 
     // 确认AI续写
     confirmAiCreatePart() {
-      if (!this.aiPartInput.trim()) return
       this.closeAiCreatePartDialog()
       this.aiCreatePart()
     },
@@ -783,8 +825,15 @@ export default {
         if (!this.beingCreatePartNode) {
           return
         }
+        if (this.platformAiContext) {
+          this.doPlatformAiContinue()
+          return
+        }
         await this.aiTest()
         this.beingAiCreateNodeUid = this.beingCreatePartNode.getData('uid')
+        this.beingAiCreateNodeRole = getAiNodeRole({
+          tag: this.beingCreatePartNode.getData('tag') || []
+        })
         const currentMindMapData = this.mindMap.getData()
         this.mindMapDataCache = JSON.stringify(currentMindMapData)
         this.aiCreatingMaskVisible = true
@@ -796,8 +845,15 @@ export default {
             messages: [
               {
                 role: 'user',
-                content:
-                  this.aiPartInput.trim() + this.$t('ai.aiCreatePartMsgHelp')
+                content: `${this.$t(
+                  'ai.aiCreatePartMsgPrefix'
+                )}${this.formatNodePath(
+                  this.getNodePathToRoot(this.beingCreatePartNode)
+                )}${this.$t('ai.aiCreatePartMsgCenter')}${getStrWithBrFromHtml(
+                  this.beingCreatePartNode.getData('text')
+                )}${this.$t('ai.aiCreatePartMsgPostfix')}。用户补充要求：${
+                  this.aiPartInput.trim() || '无'
+                }${this.$t('ai.aiCreatePartMsgHelp')}`
               }
             ]
           },
@@ -827,6 +883,112 @@ export default {
       }
     },
 
+    doPlatformAiContinue() {
+      const continueMindmap = window.parent.continueMindmapWithAi
+      if (typeof continueMindmap !== 'function') {
+        this.$message.error('平台 AI 续写服务不可用')
+        this.resetAiCreatePartDialog()
+        return
+      }
+
+      this.beingAiCreateNodeUid = this.beingCreatePartNode.getData('uid')
+      this.beingAiCreateNodeRole = getAiNodeRole({
+        tag: this.beingCreatePartNode.getData('tag') || []
+      })
+      const currentMindMapData = this.mindMap.getData()
+      this.mindMapDataCache = JSON.stringify(currentMindMapData)
+      const payload = {
+        mindmap_id: this.platformAiContext.mindmapId,
+        content: this.mindMapDataCache,
+        target_uid: this.beingAiCreateNodeUid,
+        prompt: this.aiPartInput.trim() || null
+      }
+
+      this.startGenerationProgress('reading', '正在读取节点上下文与关联需求')
+      this.generationFailed = false
+      this.aiCreatingContent = ''
+      this.aiCreatingMaskVisible = true
+      this.isAiCreating = true
+
+      const stream = continueMindmap(payload, {
+        onStatus: data => {
+          this.generationStatus = data.message || this.generationStatus
+          this.generationStage = data.stage || this.generationStage
+        },
+        onDelta: data => {
+          if (!data.content) return
+          this.generationStage = 'generating'
+          this.generationStatus = '正在续写目标节点'
+          this.aiCreatingContent += data.content
+          this.loopRenderOnAiCreatingPart()
+        },
+        onError: data => {
+          this.generationFailed = true
+          this.restorePartGenerationData()
+          this.resetOnAiCreatingStop()
+          this.resetAiCreatePartDialog()
+          this.resetOnRenderEnd()
+          this.$message.error(data.message || this.$t('ai.generationFailed'))
+        },
+        onDone: () => {
+          if (this.generationFailed) return
+          if (!this.aiCreatingContent.trim()) {
+            this.restorePartGenerationData()
+            this.resetOnAiCreatingStop()
+            this.resetAiCreatePartDialog()
+            this.resetOnRenderEnd()
+            this.$message.error(this.$t('ai.generationFailed'))
+            return
+          }
+          this.resetOnAiCreatingStop()
+          this.resetAiCreatePartDialog()
+          this.loopRenderOnAiCreatingPart()
+        }
+      })
+      this.aiInstance = {
+        stop: () => stream && stream.abort && stream.abort()
+      }
+    },
+
+    restorePartGenerationData() {
+      if (!this.mindMapDataCache) return
+      try {
+        this.mindMap.setData(JSON.parse(this.mindMapDataCache))
+      } catch (error) {
+        console.log(error)
+      }
+    },
+
+    validateContinuationChildren(children) {
+      if (!this.platformAiContext) {
+        return {
+          children: Array.isArray(children) ? children : [],
+          invalidCount: 0
+        }
+      }
+      let invalidCount = 0
+      const validate = (node, parentRole) => {
+        const role = getAiNodeRole(node && node.data)
+        const allowedRoles = aiContinuationRoleTransitions[parentRole] || []
+        if (!allowedRoles.includes(role)) {
+          invalidCount += 1
+          return null
+        }
+        return {
+          ...node,
+          children: (Array.isArray(node.children) ? node.children : [])
+            .map(child => validate(child, role))
+            .filter(Boolean)
+        }
+      }
+      return {
+        children: (Array.isArray(children) ? children : [])
+          .map(child => validate(child, this.beingAiCreateNodeRole))
+          .filter(Boolean),
+        invalidCount
+      }
+    },
+
     // 将生成的数据添加到指定节点上
     addToTargetNode(newChildren = []) {
       const initData = JSON.parse(this.mindMapDataCache)
@@ -853,6 +1015,18 @@ export default {
       if (!this.aiCreatingContent.trim() || this.isLoopRendering) return
       const partData = this.parseAiCreatingTree()
       if (!partData) return
+      const validation = this.validateContinuationChildren(
+        partData.children || []
+      )
+      if (!validation.children.length && validation.invalidCount > 0) {
+        if (!this.isAiCreating) {
+          this.restorePartGenerationData()
+          this.resetOnRenderEnd()
+          this.$message.error('AI 续写结果不符合当前节点的结构规范，请重试')
+        }
+        return
+      }
+      partData.children = validation.children
       this.isLoopRendering = true
       this.addUid(partData)
       let lastPartData = JSON.stringify(partData)
@@ -877,6 +1051,25 @@ export default {
           }, 300)
           return
         }
+        const validation = this.validateContinuationChildren(
+          partData.children || []
+        )
+        if (!validation.children.length && validation.invalidCount > 0) {
+          if (this.isAiCreating) {
+            setTimeout(() => {
+              onRenderEnd()
+            }, 300)
+          } else {
+            this.mindMap.off('node_tree_render_end', onRenderEnd)
+            this.restorePartGenerationData()
+            this.resetOnRenderEnd()
+            this.$message.error(
+              'AI 续写结果不符合当前节点的结构规范，请重试'
+            )
+          }
+          return
+        }
+        partData.children = validation.children
         this.addUid(partData)
         const treeData = this.addToTargetNode(partData.children || [])
 
