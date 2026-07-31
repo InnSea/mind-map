@@ -41,53 +41,85 @@
       :class="{ isDark }"
       :title="$t('ai.createMindMapTitle')"
       :visible.sync="createDialogVisible"
-      :width="platformAiContext ? '560px' : '450px'"
+      :width="platformAiContext ? '620px' : '450px'"
       append-to-body
     >
       <div class="inputBox">
-        <div v-if="platformAiContext" class="wikiSection">
-          <div class="wikiHeader">
+        <div v-if="platformAiContext" class="documentSection">
+          <div class="documentHeader">
             <div>
-              <div class="wikiTitle">关联 Wiki 文档</div>
-              <div class="wikiSubtitle">选择本次生成需要参考的需求文档</div>
+              <div class="documentTitle">参考文档</div>
+              <div class="documentSubtitle">选择本次生成使用的导图关联文档</div>
             </div>
             <el-checkbox
-              v-if="platformWikiFiles.length"
-              :indeterminate="wikiSelectionIndeterminate"
-              :value="allProcessedWikiSelected"
-              @change="toggleAllWiki"
-            >全选</el-checkbox>
-          </div>
-          <el-checkbox-group
-            v-if="platformWikiFiles.length"
-            v-model="selectedWikiIds"
-            class="wikiList"
-          >
-            <label
-              v-for="wiki in platformWikiFiles"
-              :key="wiki.id"
-              class="wikiItem"
-              :class="{ unavailable: !wiki.processed }"
+              v-if="documentCount"
+              :indeterminate="documentSelectionIndeterminate"
+              :value="allDocumentsSelected"
+              :disabled="documentScopeLoading"
+              @change="toggleAllDocuments"
+              >{{ documentScopeLoading ? '处理中' : '全选' }}</el-checkbox
             >
-              <el-checkbox :label="wiki.id" :disabled="!wiki.processed">
-                <span class="wikiName">{{ wiki.fileName }}</span>
-              </el-checkbox>
-              <span class="wikiMeta">
-                <i :class="wiki.type === 'page' ? 'el-icon-link' : 'el-icon-document'" />
-                {{ wiki.processed ? '已就绪' : '处理中' }}
-              </span>
-            </label>
-          </el-checkbox-group>
-          <div v-else class="wikiEmpty">
+          </div>
+          <div v-if="documentNodes.length" class="documentList documentTree">
+            <template v-for="row in documentTreeRows">
+              <button
+                v-if="row.node.type !== 'item'"
+                :key="row.node.key"
+                type="button"
+                class="documentDirectory"
+                :class="{ documentProject: row.depth === 0 }"
+                :style="{ paddingLeft: `${10 + row.depth * 18}px` }"
+                @click="toggleDocumentNode(row.node)"
+              >
+                <i
+                  v-if="row.node.hasChildren"
+                  :class="
+                    row.node.loading
+                      ? 'el-icon-loading'
+                      : isDocumentNodeExpanded(row.node.key)
+                        ? 'el-icon-arrow-down'
+                        : 'el-icon-arrow-right'
+                  "
+                />
+                <i v-else class="documentDirectorySpacer" />
+                <i class="el-icon-folder" />
+                <span class="documentProjectName">{{ row.node.title }}</span>
+                <span v-if="row.node.count != null" class="documentProjectCount">
+                  {{ row.node.count }} 篇
+                </span>
+              </button>
+              <label
+                v-else
+                :key="row.node.key"
+                class="documentItem"
+                :style="{ paddingLeft: `${34 + row.depth * 18}px` }"
+              >
+                <el-checkbox v-model="selectedDocumentIds" :label="row.node.item.id">
+                  <span class="documentName">{{ row.node.item.title }}</span>
+                </el-checkbox>
+                <span class="documentMeta">
+                  <span v-if="row.node.item.isLinked" class="linkedDocumentTag">已关联</span>
+                  {{ row.node.item.wordCount || 0 }} 词
+                </span>
+              </label>
+            </template>
+          </div>
+          <div v-else class="documentEmpty">
             <i class="el-icon-document" />
-            当前导图未关联 Wiki 文档
+            当前导图暂无关联文档
           </div>
         </div>
-        <div v-if="platformAiContext" class="promptLabel">补充生成要求（可选）</div>
+        <div v-if="platformAiContext" class="promptLabel">
+          补充生成要求（可选）
+        </div>
         <el-input
           type="textarea"
           :rows="platformAiContext ? 4 : 5"
-          :placeholder="platformAiContext ? '例如：重点覆盖权限、弱网和异常状态流转' : $t('ai.createTip')"
+          :placeholder="
+            platformAiContext
+              ? '例如：重点覆盖权限、弱网和异常状态流转'
+              : $t('ai.createTip')
+          "
           :maxlength="platformAiContext ? 2000 : undefined"
           :show-word-limit="Boolean(platformAiContext)"
           v-model="aiInput"
@@ -223,6 +255,12 @@ const aiContinuationRoleTransitions = {
   operation: ['expected_result', 'operation'],
   expected_result: ['operation']
 }
+const aiSemanticNodeRoles = [
+  'precondition',
+  'test_data',
+  'operation',
+  'expected_result'
+]
 
 const getAiNodeRole = data => {
   const tags = Array.isArray(data && data.tag) ? data.tag : []
@@ -235,6 +273,28 @@ const getAiNodeRole = data => {
   if (tagTexts.includes('预期结果')) return 'expected_result'
   if (tagTexts.some(tag => /^P[0-3]$/.test(tag || ''))) return 'test_case'
   return 'structural'
+}
+
+const nodeUsesAiSemanticTag = node => {
+  if (!node || typeof node.getData !== 'function') return false
+  return aiSemanticNodeRoles.includes(
+    getAiNodeRole({ tag: node.getData('tag') || [] })
+  )
+}
+
+const continuationBranchUsesSemanticTags = node => {
+  let current = node
+  while (current) {
+    if (nodeUsesAiSemanticTag(current)) return true
+    current = current.parent
+  }
+
+  const walk = currentNode => {
+    if (!currentNode) return false
+    if (nodeUsesAiSemanticTag(currentNode)) return true
+    return (currentNode.children || []).some(child => walk(child))
+  }
+  return walk(node)
 }
 
 export default {
@@ -258,7 +318,12 @@ export default {
       aiInput: '',
       aiCreatingMaskVisible: false,
       platformAiContext: null,
-      selectedWikiIds: [],
+      selectedDocumentIds: [],
+      documentNodes: [],
+      expandedDocumentNodes: [],
+      documentCount: 0,
+      documentScopeLoading: false,
+      documentTreeLoadSerial: 0,
       generationStatus: '',
       generationStage: 'reading',
       generationElapsedSeconds: 0,
@@ -269,6 +334,7 @@ export default {
       mindMapDataCache: '',
       beingAiCreateNodeUid: '',
       beingAiCreateNodeRole: '',
+      beingAiCreateUsesSemanticTags: false,
 
       createPartDialogVisible: false,
       aiPartInput: '',
@@ -295,28 +361,32 @@ export default {
     isDark() {
       return this.$store.state.localConfig.isDark
     },
-    platformWikiFiles() {
-      return (this.platformAiContext && this.platformAiContext.wikiFiles) || []
+    documentTreeRows() {
+      const rows = []
+      const appendNodes = (nodes, depth = 0) => {
+        (nodes || []).forEach(node => {
+          rows.push({ node, depth })
+          if (node.type !== 'item' && this.isDocumentNodeExpanded(node.key)) {
+            appendNodes(node.children, depth + 1)
+          }
+        })
+      }
+      appendNodes(this.documentNodes)
+      return rows
     },
-    processedWikiIds() {
-      return this.platformWikiFiles
-        .filter(item => item.processed)
-        .map(item => item.id)
-    },
-    allProcessedWikiSelected() {
+    allDocumentsSelected() {
       return (
-        this.processedWikiIds.length > 0 &&
-        this.processedWikiIds.every(id => this.selectedWikiIds.includes(id))
+        this.documentCount > 0 &&
+        this.selectedDocumentIds.length === this.documentCount
       )
     },
-    wikiSelectionIndeterminate() {
-      const count = this.selectedWikiIds.length
-      return count > 0 && count < this.processedWikiIds.length
+    documentSelectionIndeterminate() {
+      const count = this.selectedDocumentIds.length
+      return count > 0 && count < this.documentCount
     },
     generationSteps() {
       return [
         { key: 'reading', label: '读取需求' },
-        { key: 'retrieving', label: '检索知识库' },
         { key: 'organizing', label: '整理上下文' },
         { key: 'generating', label: '生成节点' }
       ]
@@ -352,7 +422,7 @@ export default {
     // 客户端连接检测
     async testConnect() {
       try {
-        await fetch("https://test.classtorch.com/api/ai/test", {
+        await fetch('https://test.classtorch.com/api/ai/test', {
           method: 'GET',
           timeout: 60000
         })
@@ -393,14 +463,24 @@ export default {
             return
           }
           this.platformAiContext = context
-          this.selectedWikiIds = (context.wikiFiles || [])
-            .filter(item => item.processed)
-            .map(item => item.id)
+          const linkedDocuments = Array.isArray(context.documents)
+            ? context.documents.filter(item => item.isLinked !== false)
+            : []
+          this.documentNodes = linkedDocuments.map(item => ({
+            key: `linked-document-${item.id}`,
+            type: 'item',
+            item
+          }))
+          this.documentCount = linkedDocuments.length
+          this.expandedDocumentNodes = []
+          this.documentTreeLoadSerial += 1
+          const linkedDocumentIds = linkedDocuments.map(item => item.id)
+          this.selectedDocumentIds = [...new Set(linkedDocumentIds)]
           this.createDialogVisible = true
           return
         } catch (error) {
           console.log(error)
-          this.$message.error('获取导图 Wiki 信息失败')
+          this.$message.error('获取导图关联文档失败')
           return
         }
       }
@@ -417,16 +497,78 @@ export default {
     closeAiCreateDialog() {
       this.createDialogVisible = false
       this.aiInput = ''
+      this.documentTreeLoadSerial += 1
+      this.documentScopeLoading = false
     },
 
-    toggleAllWiki(checked) {
-      this.selectedWikiIds = checked ? [...this.processedWikiIds] : []
+    async toggleAllDocuments(checked) {
+      if (!checked) {
+        this.selectedDocumentIds = []
+        return
+      }
+      const linkedDocuments = (this.platformAiContext && this.platformAiContext.documents) || []
+      this.selectedDocumentIds = [
+        ...new Set(
+          linkedDocuments
+            .filter(item => item.isLinked !== false)
+            .map(item => item.id)
+        )
+      ]
+    },
+
+    isDocumentNodeExpanded(nodeKey) {
+      return this.expandedDocumentNodes.includes(nodeKey)
+    },
+
+    async toggleDocumentNode(node) {
+      if (!node || !node.hasChildren || node.loading) return
+      if (this.isDocumentNodeExpanded(node.key)) {
+        this.expandedDocumentNodes = this.expandedDocumentNodes.filter(
+          key => key !== node.key
+        )
+        return
+      }
+      this.expandedDocumentNodes = [...this.expandedDocumentNodes, node.key]
+      if (node.loaded) return
+      const loadNodes =
+        window.takeOverApp && window.parent.loadAiMindmapDocumentNodes
+      if (typeof loadNodes !== 'function') {
+        this.expandedDocumentNodes = this.expandedDocumentNodes.filter(
+          key => key !== node.key
+        )
+        this.$message.error('文档目录服务不可用')
+        return
+      }
+      const serial = this.documentTreeLoadSerial
+      this.$set(node, 'loading', true)
+      try {
+        const children = await loadNodes({
+          type: node.type,
+          id: node.id,
+          groupId: node.groupId
+        })
+        if (serial !== this.documentTreeLoadSerial) return
+        this.$set(node, 'children', children || [])
+        this.$set(node, 'loaded', true)
+      } catch (error) {
+        console.log(error)
+        if (serial === this.documentTreeLoadSerial) {
+          this.expandedDocumentNodes = this.expandedDocumentNodes.filter(
+            key => key !== node.key
+          )
+          this.$message.error('文档目录加载失败')
+        }
+      } finally {
+        if (serial === this.documentTreeLoadSerial) {
+          this.$set(node, 'loading', false)
+        }
+      }
     },
 
     // 确认生成
     doAiCreate() {
       const aiInputText = this.aiInput.trim()
-      if (!aiInputText && this.selectedWikiIds.length === 0) {
+      if (!aiInputText && this.selectedDocumentIds.length === 0) {
         this.$message.warning(this.$t('ai.noInputTip'))
         return
       }
@@ -485,10 +627,10 @@ export default {
       const payload = {
         mindmap_id: this.platformAiContext.mindmapId,
         prompt: aiInputText || null,
-        wiki_file_ids: [...this.selectedWikiIds]
+        document_ids: [...this.selectedDocumentIds]
       }
       this.closeAiCreateDialog()
-      this.startGenerationProgress('reading', '正在读取已选择的 Wiki 需求')
+      this.startGenerationProgress('reading', '正在读取已选择的参考文档')
       this.generationFailed = false
       this.aiCreatingContent = ''
       this.fullGenerationDataCache = JSON.stringify(this.mindMap.getData())
@@ -587,6 +729,7 @@ export default {
       this.fullGenerationDataCache = ''
       this.beingAiCreateNodeUid = ''
       this.beingAiCreateNodeRole = ''
+      this.beingAiCreateUsesSemanticTags = false
     },
 
     // 停止生成
@@ -763,12 +906,18 @@ export default {
     formatNodePath(path) {
       return path
         .map((item, index) => {
-          let nodeInfo = `${'  '.repeat(index)}${index === 0 ? '' : '└─ '}${item.text}`
+          let nodeInfo = `${'  '.repeat(index)}${index === 0 ? '' : '└─ '}${
+            item.text
+          }`
           if (item.note) {
             nodeInfo += ` (备注: ${item.note})`
           }
           if (item.tag && item.tag.length > 0) {
-            const tags = Array.isArray(item.tag) ? item.tag.map(t => typeof t === 'string' ? t : t.text).join(', ') : item.tag
+            const tags = Array.isArray(item.tag)
+              ? item.tag
+                  .map(t => (typeof t === 'string' ? t : t.text))
+                  .join(', ')
+              : item.tag
             nodeInfo += ` [标签: ${tags}]`
           }
           return nodeInfo
@@ -834,6 +983,9 @@ export default {
         this.beingAiCreateNodeRole = getAiNodeRole({
           tag: this.beingCreatePartNode.getData('tag') || []
         })
+        this.beingAiCreateUsesSemanticTags = continuationBranchUsesSemanticTags(
+          this.beingCreatePartNode
+        )
         const currentMindMapData = this.mindMap.getData()
         this.mindMapDataCache = JSON.stringify(currentMindMapData)
         this.aiCreatingMaskVisible = true
@@ -851,9 +1003,11 @@ export default {
                   this.getNodePathToRoot(this.beingCreatePartNode)
                 )}${this.$t('ai.aiCreatePartMsgCenter')}${getStrWithBrFromHtml(
                   this.beingCreatePartNode.getData('text')
-                )}${this.$t('ai.aiCreatePartMsgPostfix')}。用户补充要求：${
-                  this.aiPartInput.trim() || '无'
-                }${this.$t('ai.aiCreatePartMsgHelp')}`
+                )}${this.$t(
+                  'ai.aiCreatePartMsgPostfix'
+                )}。用户补充要求：${this.aiPartInput.trim() || '无'}${this.$t(
+                  'ai.aiCreatePartMsgHelp'
+                )}`
               }
             ]
           },
@@ -895,6 +1049,9 @@ export default {
       this.beingAiCreateNodeRole = getAiNodeRole({
         tag: this.beingCreatePartNode.getData('tag') || []
       })
+      this.beingAiCreateUsesSemanticTags = continuationBranchUsesSemanticTags(
+        this.beingCreatePartNode
+      )
       const currentMindMapData = this.mindMap.getData()
       this.mindMapDataCache = JSON.stringify(currentMindMapData)
       const payload = {
@@ -960,7 +1117,11 @@ export default {
     },
 
     validateContinuationChildren(children) {
-      if (!this.platformAiContext) {
+      if (
+        !this.platformAiContext ||
+        !this.beingAiCreateUsesSemanticTags ||
+        this.beingAiCreateNodeRole === 'structural'
+      ) {
         return {
           children: Array.isArray(children) ? children : [],
           invalidCount: 0
@@ -1063,9 +1224,7 @@ export default {
             this.mindMap.off('node_tree_render_end', onRenderEnd)
             this.restorePartGenerationData()
             this.resetOnRenderEnd()
-            this.$message.error(
-              'AI 续写结果不符合当前节点的结构规范，请重试'
-            )
+            this.$message.error('AI 续写结果不符合当前节点的结构规范，请重试')
           }
           return
         }
@@ -1166,25 +1325,25 @@ export default {
 }
 
 .inputBox {
-  .wikiSection {
+  .documentSection {
     margin-bottom: 18px;
   }
 
-  .wikiHeader {
+  .documentHeader {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     margin-bottom: 10px;
   }
 
-  .wikiTitle,
+  .documentTitle,
   .promptLabel {
     color: #303133;
     font-size: 14px;
     font-weight: 600;
   }
 
-  .wikiSubtitle {
+  .documentSubtitle {
     margin-top: 3px;
     color: #909399;
     font-size: 12px;
@@ -1194,14 +1353,61 @@ export default {
     margin-bottom: 8px;
   }
 
-  .wikiList {
-    max-height: 210px;
+  .documentList {
+    max-height: 260px;
     overflow-y: auto;
     border: 1px solid #e4e7ed;
     border-radius: 4px;
   }
 
-  .wikiEmpty {
+  .documentDirectory {
+    display: flex;
+    width: 100%;
+    height: 36px;
+    align-items: center;
+    gap: 7px;
+    box-sizing: border-box;
+    padding-top: 0;
+    padding-right: 12px;
+    padding-bottom: 0;
+    border: 0;
+    border-bottom: 1px solid #ebeef5;
+    color: #606266;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      background: #f5f7fa;
+    }
+  }
+
+  .documentProject {
+    height: 40px;
+  }
+
+  .documentDirectorySpacer {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+  }
+
+  .documentProjectName {
+    color: #303133;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .documentProjectCount {
+    flex: 0 0 auto;
+    color: #909399;
+    font-size: 12px;
+    margin-left: auto;
+  }
+
+  .documentEmpty {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1216,7 +1422,7 @@ export default {
     }
   }
 
-  .wikiItem {
+  .documentItem {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1234,13 +1440,9 @@ export default {
       background: #f5f7fa;
     }
 
-    &.unavailable {
-      cursor: not-allowed;
-      background: #fafafa;
-    }
   }
 
-  .wikiName {
+  .documentName {
     display: inline-block;
     max-width: 330px;
     overflow: hidden;
@@ -1249,11 +1451,24 @@ export default {
     white-space: nowrap;
   }
 
-  .wikiMeta {
+  .documentMeta {
     flex: 0 0 auto;
     margin-left: 12px;
     color: #909399;
     font-size: 12px;
+  }
+
+  .linkedDocumentTag {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    margin-right: 8px;
+    padding: 0 6px;
+    border-radius: 3px;
+    background: #ecf5ff;
+    color: #409eff;
+    font-size: 11px;
+    line-height: 20px;
   }
 
   .tip {
@@ -1267,36 +1482,52 @@ export default {
 
 .createDialog.isDark {
   .inputBox {
-    .wikiTitle,
+    .documentTitle,
     .promptLabel {
       color: #e5e7eb;
     }
 
-    .wikiSubtitle,
-    .wikiMeta,
-    .wikiEmpty {
+    .documentSubtitle,
+    .documentMeta,
+    .documentProjectCount,
+    .documentEmpty {
       color: #a7abb2;
     }
 
-    .wikiList {
+    .documentList {
       border-color: #4c5159;
       background: #30343a;
     }
 
-    .wikiEmpty {
+    .documentEmpty {
       border-color: #555b64;
       background: #30343a;
     }
 
-    .wikiItem {
+    .documentItem {
       border-color: #454a52;
 
       &:hover {
         background: #3a3f46;
       }
 
-      &.unavailable {
-        background: #2b2f34;
+    }
+
+    .documentProjectName {
+      color: #e5e7eb;
+    }
+
+    .linkedDocumentTag {
+      background: rgba(64, 158, 255, 0.16);
+      color: #79bbff;
+    }
+
+    .documentDirectory {
+      border-color: #454a52;
+      color: #d8dbe0;
+
+      &:hover {
+        background: #3a3f46;
       }
     }
   }
@@ -1343,8 +1574,7 @@ export default {
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.98);
     color: #303133;
-    box-shadow:
-      0 16px 34px rgba(31, 45, 61, 0.13),
+    box-shadow: 0 16px 34px rgba(31, 45, 61, 0.13),
       0 3px 8px rgba(31, 45, 61, 0.06);
     box-sizing: border-box;
     backdrop-filter: blur(10px);
@@ -1597,7 +1827,6 @@ export default {
       border-color: #454b53;
       color: #c2c7ce;
     }
-
   }
 
   @media (max-width: 520px) {
