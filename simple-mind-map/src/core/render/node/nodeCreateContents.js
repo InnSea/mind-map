@@ -107,6 +107,15 @@ function createIconNode() {
       item,
       this.mindMap.opt.iconList || []
     )
+    // 从SVG中提取自定义宽高比例
+    const widthRatioMatch = /^<svg\b[^>]*\bdata-width-ratio=["']([\d.]+)["']/i.exec(src)
+    const heightRatioMatch = /^<svg\b[^>]*\bdata-height-ratio=["']([\d.]+)["']/i.exec(src)
+    const widthRatio = widthRatioMatch ? Number(widthRatioMatch[1]) : 1
+    const heightRatio = heightRatioMatch ? Number(heightRatioMatch[1]) : 1
+    const wRatio = Number.isFinite(widthRatio) && widthRatio > 0 ? Math.min(widthRatio, 1.5) : 1
+    const hRatio = Number.isFinite(heightRatio) && heightRatio > 0 ? Math.min(heightRatio, 1.5) : 1
+    const h = iconSize * hRatio
+    const w = h * wRatio
     let node = null
     // svg图标
     if (/^<svg/.test(src)) {
@@ -115,7 +124,7 @@ function createIconNode() {
       // 图片图标
       node = new SVGImage().load(src)
     }
-    node.size(iconSize, iconSize)
+    node.size(w, h)
     node.on('click', e => {
       this.mindMap.emit('node_icon_click', this, item, e, node)
     })
@@ -127,8 +136,8 @@ function createIconNode() {
     })
     return {
       node,
-      width: iconSize,
-      height: iconSize
+      width: w,
+      height: h
     }
   })
 }

@@ -540,6 +540,7 @@ class IncrementalSync {
       treeData.data.expand = true
     }
 
+    this.mindMap.emit('incremental_sync_before_render', treeData)
     this.mindMap.renderer.setData(treeData)
     this.currentData = data
 
