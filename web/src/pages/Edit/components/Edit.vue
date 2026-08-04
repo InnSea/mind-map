@@ -228,6 +228,7 @@ export default {
       mindMap: null,
       mindMapData: null,
       mindMapConfig: {},
+      mindMapInitFrame: null,
       prevImg: '',
       storeConfigTimer: null,
       showDragMask: false,
@@ -301,6 +302,10 @@ export default {
     window.addEventListener('resize', this.handleResize)
   },
   beforeDestroy() {
+    if (this.mindMapInitFrame !== null) {
+      cancelAnimationFrame(this.mindMapInitFrame)
+      this.mindMapInitFrame = null
+    }
     this.$bus.$off('execCommand', this.execCommand)
     this.$bus.$off('paddingChange', this.onPaddingChange)
     this.$bus.$off('export', this.export)
@@ -313,9 +318,12 @@ export default {
     this.$bus.$off('showLoading', this.handleShowLoading)
     window.removeEventListener('resize', this.handleResize)
     this.closeVideoActionMenu()
-    this.mindMap.off('before_set_data', this.syncUserStatusIcons)
-    this.mindMap.off('incremental_sync_before_render', this.syncUserStatusIcons)
-    this.mindMap.destroy()
+    if (this.mindMap) {
+      this.mindMap.off('before_set_data', this.syncUserStatusIcons)
+      this.mindMap.off('incremental_sync_before_render', this.syncUserStatusIcons)
+      this.mindMap.destroy()
+      this.mindMap = null
+    }
   },
   methods: {
     handleStartTextEdit() {
@@ -336,6 +344,10 @@ export default {
 
     handleResize() {
       if (!this.mindMap) return
+      const el = this.$refs.mindMapContainer
+      if (!el) return
+      const { width, height } = el.getBoundingClientRect()
+      if (width <= 0 || height <= 0) return
       this.mindMap.resize()
     },
 
@@ -392,6 +404,19 @@ export default {
 
     // 初始化
     init() {
+      if (this.mindMap) return true
+      const el = this.$refs.mindMapContainer
+      if (!el) return false
+      const { width, height } = el.getBoundingClientRect()
+      if (width <= 0 || height <= 0) {
+        if (this.mindMapInitFrame === null) {
+          this.mindMapInitFrame = requestAnimationFrame(() => {
+            this.mindMapInitFrame = null
+            if (!this._isBeingDestroyed && !this._isDestroyed) this.init()
+          })
+        }
+        return false
+      }
       let hasFileURL = this.hasFileURL()
       let { root, layout, theme, view } = this.mindMapData
       const config = this.mindMapConfig
@@ -587,6 +612,7 @@ export default {
       }
       // 协同编辑
       // this.cooperateEdit()
+      return true
     },
 
     // 加载相关插件

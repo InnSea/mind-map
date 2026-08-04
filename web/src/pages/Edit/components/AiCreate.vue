@@ -92,14 +92,14 @@
                 v-else
                 :key="row.node.key"
                 class="documentItem"
-                :style="{ paddingLeft: `${34 + row.depth * 18}px` }"
+                :style="{ paddingLeft: '18px' }"
               >
                 <el-checkbox v-model="selectedDocumentIds" :label="row.node.item.id">
                   <span class="documentName">{{ row.node.item.title }}</span>
                 </el-checkbox>
                 <span class="documentMeta">
                   <span v-if="row.node.item.isLinked" class="linkedDocumentTag">已关联</span>
-                  {{ row.node.item.wordCount || 0 }} 词
+                  <!-- {{ row.node.item.wordCount || 0 }} 词 -->
                 </span>
               </label>
             </template>
@@ -163,8 +163,12 @@
             <span>{{ $t('ai.stopGenerating') }}</span>
           </el-button>
         </div>
-        <div v-if="platformAiContext" class="generationSteps">
-          <span class="stepTrack">
+        <div
+          v-if="platformAiContext"
+          class="generationSteps"
+          :style="generationStepsGridStyle"
+        >
+          <span class="stepTrack" :style="generationStepsTrackStyle">
             <span :style="generationTimelineProgressStyle" />
           </span>
           <div
@@ -401,6 +405,18 @@ export default {
       const maxIndex = Math.max(this.generationSteps.length - 1, 1)
       return {
         width: `${(this.generationStageIndex / maxIndex) * 100}%`
+      }
+    },
+    generationStepsGridStyle() {
+      return {
+        gridTemplateColumns: `repeat(${this.generationSteps.length}, minmax(0, 1fr))`
+      }
+    },
+    generationStepsTrackStyle() {
+      const inset = `${100 / (2 * Math.max(this.generationSteps.length, 1))}%`
+      return {
+        left: inset,
+        right: inset
       }
     },
     generationElapsedText() {
@@ -1644,15 +1660,12 @@ export default {
   .generationSteps {
     position: relative;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
     margin: 20px 2px 16px;
   }
 
   .stepTrack {
     position: absolute;
     top: 8px;
-    right: 12.5%;
-    left: 12.5%;
     height: 2px;
     overflow: hidden;
     border-radius: 2px;

@@ -38,6 +38,9 @@ export default {
   created() {
     document[fullscrrenEvent] = () => {
       setTimeout(() => {
+        if (!this.mindMap || !this.mindMap.el) return
+        const { width, height } = this.mindMap.el.getBoundingClientRect()
+        if (width <= 0 || height <= 0) return
         this.mindMap.resize()
       }, 1000)
     }
