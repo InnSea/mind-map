@@ -20,11 +20,17 @@ class Command {
     // 注册快捷键
     this.registerShortcutKeys()
     this.originAddHistory = this.addHistory.bind(this)
-    this.addHistory = throttle(
+    const throttledAddHistory = throttle(
       this.addHistory,
       this.mindMap.opt.addHistoryTime,
       this
     )
+    this.addHistory = (...args) => {
+      const incrementalSync = this.mindMap.incrementalSync
+      if (incrementalSync && incrementalSync.isHistorySuppressed()) return
+      return throttledAddHistory(...args)
+    }
+    this.addHistory.flush = throttledAddHistory.flush
     // 是否暂停收集历史数据
     this.isPause = false
   }
@@ -59,6 +65,7 @@ class Command {
   //  执行命令
   exec(name, ...args) {
     if (this.commands[name]) {
+      this.mindMap.emit('beforeExecCommand', name, ...args)
       this.commands[name].forEach(fn => {
         fn(...args)
       })

@@ -313,19 +313,23 @@ class MindMap {
   }
 
   // 获取或更新容器尺寸位置信息
-  getElRectInfo() {
-    this.elRect = this.el.getBoundingClientRect()
-    this.width = this.elRect.width
-    this.height = this.elRect.height
-    if (this.width <= 0 || this.height <= 0)
-      throw new Error('容器元素el的宽高不能为0')
+  getElRectInfo(throwOnInvalid = true) {
+    const elRect = this.el.getBoundingClientRect()
+    if (elRect.width <= 0 || elRect.height <= 0) {
+      if (throwOnInvalid) throw new Error('容器元素el的宽高不能为0')
+      return false
+    }
+    this.elRect = elRect
+    this.width = elRect.width
+    this.height = elRect.height
+    return true
   }
 
   //  容器尺寸变化，调整尺寸
   resize() {
     const oldWidth = this.width
     const oldHeight = this.height
-    this.getElRectInfo()
+    if (!this.getElRectInfo(false)) return false
     this.svg.size(this.width, this.height)
     if (oldWidth !== this.width || oldHeight !== this.height) {
       // 如果画布宽高改变了需要触发一次渲染
@@ -339,6 +343,7 @@ class MindMap {
       }
     }
     this.emit('resize')
+    return true
   }
 
   //  监听事件

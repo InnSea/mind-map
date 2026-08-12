@@ -282,15 +282,27 @@ export const downloadFile = (file, fileName) => {
 //  节流函数
 export const throttle = (fn, time = 300, ctx) => {
   let timer = null
-  return (...args) => {
+  let pendingArgs = null
+  const invoke = () => {
+    const args = pendingArgs
+    timer = null
+    pendingArgs = null
+    fn.call(ctx, ...args)
+  }
+  const throttled = (...args) => {
     if (timer) {
       return
     }
-    timer = setTimeout(() => {
-      fn.call(ctx, ...args)
-      timer = null
-    }, time)
+    pendingArgs = args
+    timer = setTimeout(invoke, time)
   }
+  throttled.flush = () => {
+    if (!timer) return false
+    clearTimeout(timer)
+    invoke()
+    return true
+  }
+  return throttled
 }
 
 // 防抖函数
