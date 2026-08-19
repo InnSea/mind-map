@@ -1,3 +1,5 @@
+import { platformStream } from '@/api/platformClient'
+
 class Ai {
   constructor() {
     this.controller = null
@@ -49,19 +51,14 @@ class Ai {
 
   async postMsg(data) {
     this.controller = new AbortController()
-    const res = await fetch('https://test.classtorch.com/api/ai/chat', {
+    return platformStream('/api/ai/chat', {
       signal: this.controller.signal,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(data),
-      timeout: 60000
+      body: JSON.stringify(data)
     })
-    if (res.status && res.status !== 200) {
-      throw new Error('请求失败')
-    }
-    return res.body.getReader()
   }
 
   handleChunkData(chunk) {

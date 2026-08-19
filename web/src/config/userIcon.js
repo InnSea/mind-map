@@ -1,3 +1,5 @@
+import { platformRequest } from '@/api/platformClient'
+
 function adjustColor(color, amount) {
   const hex = color.replace('#', '')
   const r = Math.max(
@@ -64,12 +66,10 @@ function stringToColor(str) {
 
 export default async function loadUserIconList() {
   try {
-    const [userResponse, groupResponse] = await Promise.all([
-      fetch('https://test.classtorch.com/api/auth/user/list?page=1&size=1000'),
-      fetch('https://test.classtorch.com/api/auth/group/all')
+    const [userResult, groupResult] = await Promise.all([
+      platformRequest('/api/auth/user/list?page=1&size=1000'),
+      platformRequest('/api/auth/group/all')
     ])
-    const userResult = await userResponse.json()
-    const groupResult = await groupResponse.json()
 
     if (userResult.code !== 0 || !Array.isArray(userResult.data)) return []
 

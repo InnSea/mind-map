@@ -144,18 +144,30 @@
       >
         <div class="quickTagList">
           <div
-            class="quickTagItem"
-            v-for="tag in quickTagList"
-            :key="tag"
-            :class="{ active: isTagActive(tag) }"
-            :style="{ backgroundColor: getTagColor(tag) }"
-            @click="toggleQuickTag(tag)"
+            v-for="group in quickTagGroups"
+            :key="group.title"
+            class="quickTagGroup"
           >
-            <span class="quickTagText">{{ tag }}</span>
-            <span
-              v-if="isTagActive(tag)"
-              class="iconfont iconchenggou checkIcon"
-            ></span>
+            <div class="quickTagGroupTitle">{{ group.title }}</div>
+            <div
+              class="quickTagGroupItems"
+              :class="`columns-${group.columns}`"
+            >
+              <div
+                v-for="tag in group.tags"
+                :key="tag"
+                class="quickTagItem"
+                :class="{ active: isTagActive(tag) }"
+                :style="{ backgroundColor: getTagColor(tag) }"
+                @click="toggleQuickTag(tag)"
+              >
+                <span class="quickTagText">{{ tag }}</span>
+                <span
+                  v-if="isTagActive(tag)"
+                  class="iconfont iconchenggou checkIcon"
+                ></span>
+              </div>
+            </div>
           </div>
         </div>
         <div
@@ -255,7 +267,23 @@ import { nodeTagColorMap } from '@/config/nodeTag'
 import NodeAnnotationBtn from './NodeAnnotationBtn.vue'
 
 // 快捷标签预设
-const quickTagList = ['模块', '场景', '测试点', '待定', '🐛 BUG: #', '🐛 线上BUG: #']
+const quickTagGroups = [
+  {
+    title: '用例结构',
+    columns: 3,
+    tags: ['模块', '场景', '测试点', '前置条件', '操作步骤', '预期结果']
+  },
+  {
+    title: '优先级',
+    columns: 4,
+    tags: ['P0', 'P1', 'P2', 'P3']
+  },
+  {
+    title: '状态与缺陷',
+    columns: 2,
+    tags: ['待定', '🐛 BUG: #', '🐛 线上BUG: #']
+  }
+]
 const maxTag = 5
 
 export default {
@@ -281,7 +309,7 @@ export default {
       isFullDataFile: false,
       timer: null,
       isInPainter: false,
-      quickTagList,
+      quickTagGroups,
       quickTagPopoverShow: false,
       // 当前激活节点（取第一个）的标签内容，用于高亮已选快捷标签
       activeNodeTags: []
@@ -537,21 +565,48 @@ export default {
 
 // 快捷标签弹窗（挂载在 body 上，样式不能 scoped）
 .quickTagPopover {
-  padding: 8px;
+  width: 244px;
+  padding: 10px;
 
   .quickTagList {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    min-width: 96px;
+    gap: 8px;
+  }
+
+  .quickTagGroupTitle {
+    margin-bottom: 4px;
+    color: #909399;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .quickTagGroupItems {
+    display: grid;
+    gap: 5px;
+
+    &.columns-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    &.columns-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    &.columns-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
   }
 
   .quickTagItem {
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 5px 10px;
+    justify-content: flex-start;
+    box-sizing: border-box;
+    min-width: 0;
+    height: 26px;
+    padding: 4px 8px;
     border-radius: 4px;
     color: #fff;
     cursor: pointer;
@@ -563,17 +618,23 @@ export default {
     }
 
     &.active {
+      padding-right: 20px;
       opacity: 1;
       box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25) inset;
     }
 
     .quickTagText {
-      font-size: 13px;
+      overflow: hidden;
+      font-size: 12px;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .checkIcon {
-      margin-left: 8px;
-      font-size: 12px;
+      position: absolute;
+      right: 6px;
+      font-size: 11px;
     }
   }
 }

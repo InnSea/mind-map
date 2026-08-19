@@ -231,6 +231,7 @@
 
 <script>
 import Ai from '@/utils/ai'
+import { platformRequest } from '@/api/platformClient'
 import { transformMarkdownTo } from 'simple-mind-map/src/parse/markdownTo'
 import {
   createUid,
@@ -438,10 +439,7 @@ export default {
     // 客户端连接检测
     async testConnect() {
       try {
-        await fetch('https://test.classtorch.com/api/ai/test', {
-          method: 'GET',
-          timeout: 60000
-        })
+        await platformRequest('/api/ai/test')
         this.$message.success(this.$t('ai.connectSuccessful'))
         this.clientTipDialogVisible = false
         this.createDialogVisible = true
@@ -455,9 +453,7 @@ export default {
     async aiTest() {
       let isConnect = false
       try {
-        await fetch('https://test.classtorch.com/api/ai/test', {
-          method: 'GET'
-        })
+        await platformRequest('/api/ai/test')
         isConnect = true
       } catch (error) {
         console.log(error)
