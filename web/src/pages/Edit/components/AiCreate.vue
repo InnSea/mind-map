@@ -55,54 +55,27 @@
               v-if="documentCount"
               :indeterminate="documentSelectionIndeterminate"
               :value="allDocumentsSelected"
-              :disabled="documentScopeLoading"
               @change="toggleAllDocuments"
-              >{{ documentScopeLoading ? '处理中' : '全选' }}</el-checkbox
+              >全选</el-checkbox
             >
           </div>
-          <div v-if="documentNodes.length" class="documentList documentTree">
-            <template v-for="row in documentTreeRows">
-              <button
-                v-if="row.node.type !== 'item'"
-                :key="row.node.key"
-                type="button"
-                class="documentDirectory"
-                :class="{ documentProject: row.depth === 0 }"
-                :style="{ paddingLeft: `${10 + row.depth * 18}px` }"
-                @click="toggleDocumentNode(row.node)"
+          <div v-if="documentNodes.length" class="documentList">
+            <div
+              v-for="node in documentNodes"
+              :key="node.key"
+              class="documentItem"
+            >
+              <el-checkbox
+                v-model="selectedDocumentIds"
+                :label="node.item.id"
+                :disabled="node.item.selectable === false"
               >
-                <i
-                  v-if="row.node.hasChildren"
-                  :class="
-                    row.node.loading
-                      ? 'el-icon-loading'
-                      : isDocumentNodeExpanded(row.node.key)
-                        ? 'el-icon-arrow-down'
-                        : 'el-icon-arrow-right'
-                  "
-                />
-                <i v-else class="documentDirectorySpacer" />
-                <i class="el-icon-folder" />
-                <span class="documentProjectName">{{ row.node.title }}</span>
-                <span v-if="row.node.count != null" class="documentProjectCount">
-                  {{ row.node.count }} 篇
-                </span>
-              </button>
-              <label
-                v-else
-                :key="row.node.key"
-                class="documentItem"
-                :style="{ paddingLeft: '18px' }"
-              >
-                <el-checkbox v-model="selectedDocumentIds" :label="row.node.item.id">
-                  <span class="documentName">{{ row.node.item.title }}</span>
-                </el-checkbox>
-                <span class="documentMeta">
-                  <span v-if="row.node.item.isLinked" class="linkedDocumentTag">已关联</span>
-                  <!-- {{ row.node.item.wordCount || 0 }} 词 -->
-                </span>
-              </label>
-            </template>
+                <span class="documentName">{{ node.item.title }}</span>
+              </el-checkbox>
+              <span class="documentMeta">
+                <span class="linkedDocumentTag">已关联</span>
+              </span>
+            </div>
           </div>
           <div v-else class="documentEmpty">
             <i class="el-icon-document" />
@@ -313,6 +286,7 @@ export default {
       aiInstance: null,
       isAiCreating: false,
       aiCreatingContent: '',
+      aiCreatingImages: [],
 
       isLoopRendering: false,
       uidMap: {},
@@ -325,10 +299,7 @@ export default {
       platformAiContext: null,
       selectedDocumentIds: [],
       documentNodes: [],
-      expandedDocumentNodes: [],
       documentCount: 0,
-      documentScopeLoading: false,
-      documentTreeLoadSerial: 0,
       generationStatus: '',
       generationStage: 'reading',
       generationElapsedSeconds: 0,
@@ -365,19 +336,6 @@ export default {
   computed: {
     isDark() {
       return this.$store.state.localConfig.isDark
-    },
-    documentTreeRows() {
-      const rows = []
-      const appendNodes = (nodes, depth = 0) => {
-        (nodes || []).forEach(node => {
-          rows.push({ node, depth })
-          if (node.type !== 'item' && this.isDocumentNodeExpanded(node.key)) {
-            appendNodes(node.children, depth + 1)
-          }
-        })
-      }
-      appendNodes(this.documentNodes)
-      return rows
     },
     allDocumentsSelected() {
       return (
@@ -484,8 +442,6 @@ export default {
             item
           }))
           this.documentCount = linkedDocuments.length
-          this.expandedDocumentNodes = []
-          this.documentTreeLoadSerial += 1
           const linkedDocumentIds = linkedDocuments.map(item => item.id)
           this.selectedDocumentIds = [...new Set(linkedDocumentIds)]
           this.createDialogVisible = true
@@ -509,8 +465,6 @@ export default {
     closeAiCreateDialog() {
       this.createDialogVisible = false
       this.aiInput = ''
-      this.documentTreeLoadSerial += 1
-      this.documentScopeLoading = false
     },
 
     async toggleAllDocuments(checked) {
@@ -528,55 +482,6 @@ export default {
       ]
     },
 
-    isDocumentNodeExpanded(nodeKey) {
-      return this.expandedDocumentNodes.includes(nodeKey)
-    },
-
-    async toggleDocumentNode(node) {
-      if (!node || !node.hasChildren || node.loading) return
-      if (this.isDocumentNodeExpanded(node.key)) {
-        this.expandedDocumentNodes = this.expandedDocumentNodes.filter(
-          key => key !== node.key
-        )
-        return
-      }
-      this.expandedDocumentNodes = [...this.expandedDocumentNodes, node.key]
-      if (node.loaded) return
-      const loadNodes =
-        window.takeOverApp && window.parent.loadAiMindmapDocumentNodes
-      if (typeof loadNodes !== 'function') {
-        this.expandedDocumentNodes = this.expandedDocumentNodes.filter(
-          key => key !== node.key
-        )
-        this.$message.error('文档目录服务不可用')
-        return
-      }
-      const serial = this.documentTreeLoadSerial
-      this.$set(node, 'loading', true)
-      try {
-        const children = await loadNodes({
-          type: node.type,
-          id: node.id,
-          groupId: node.groupId
-        })
-        if (serial !== this.documentTreeLoadSerial) return
-        this.$set(node, 'children', children || [])
-        this.$set(node, 'loaded', true)
-      } catch (error) {
-        console.log(error)
-        if (serial === this.documentTreeLoadSerial) {
-          this.expandedDocumentNodes = this.expandedDocumentNodes.filter(
-            key => key !== node.key
-          )
-          this.$message.error('文档目录加载失败')
-        }
-      } finally {
-        if (serial === this.documentTreeLoadSerial) {
-          this.$set(node, 'loading', false)
-        }
-      }
-    },
-
     // 确认生成
     doAiCreate() {
       const aiInputText = this.aiInput.trim()
@@ -591,6 +496,7 @@ export default {
       this.closeAiCreateDialog()
       this.startGenerationProgress('generating', '正在生成导图结构与测试节点')
       this.aiCreatingMaskVisible = true
+      this.aiCreatingImages = []
       // 发起请求
       this.isAiCreating = true
       this.aiInstance = new Ai()
@@ -645,6 +551,7 @@ export default {
       this.startGenerationProgress('reading', '正在读取已选择的参考文档')
       this.generationFailed = false
       this.aiCreatingContent = ''
+      this.aiCreatingImages = []
       this.fullGenerationDataCache = JSON.stringify(this.mindMap.getData())
       this.aiCreatingMaskVisible = true
       this.isAiCreating = true
@@ -664,6 +571,10 @@ export default {
           this.generationStage = 'generating'
           this.generationStatus = '正在生成导图结构与测试节点'
           this.aiCreatingContent += data.content
+          this.loopRenderOnAiCreating()
+        },
+        onImages: data => {
+          this.aiCreatingImages = Array.isArray(data.images) ? data.images : []
           this.loopRenderOnAiCreating()
         },
         onError: data => {
@@ -737,6 +648,7 @@ export default {
       this.isLoopRendering = false
       this.uidMap = {}
       this.aiCreatingContent = ''
+      this.aiCreatingImages = []
       this.mindMapDataCache = ''
       this.fullGenerationDataCache = ''
       this.beingAiCreateNodeUid = ''
@@ -754,6 +666,62 @@ export default {
       }
       this.resetOnAiCreatingStop()
       this.$message.success(this.$t('ai.stoppedGenerating'))
+    },
+
+    findAiImageTarget(root, image) {
+      const normalize = value => String(value || '').replace(/\s+/g, '').trim()
+      const targetTitle = normalize(image.document_title)
+      const headingPath = String(image.heading_path || '')
+        .split('>')
+        .map(item => normalize(item))
+        .filter(Boolean)
+      const findExact = (node, text) => {
+        if (!node) return null
+        if (normalize(node.data?.text) === text) return node
+        for (const child of node.children || []) {
+          const found = findExact(child, text)
+          if (found) return found
+        }
+        return null
+      }
+
+      let target = targetTitle ? findExact(root, targetTitle) : root
+      target = target || root
+      headingPath.forEach(heading => {
+        const found = findExact(target, heading)
+        if (found) target = found
+      })
+      return target
+    },
+
+    attachAiCreatingImages(tree) {
+      const images = Array.isArray(this.aiCreatingImages)
+        ? this.aiCreatingImages
+        : []
+      if (!tree || !images.length) return tree
+      images.forEach((image, index) => {
+        const url = String(image?.url || '').trim()
+        if (!url) return
+        const target = this.findAiImageTarget(tree, image)
+        if (!target) return
+        if ((target.children || []).some(child => child.data?.image === url)) return
+        if (!Array.isArray(target.children)) target.children = []
+        target.children.push({
+          data: {
+            text: image.alt || `图片 ${index + 1}`,
+            image: url,
+            imageTitle: image.alt || image.document_title || '',
+            imageSize: {
+              width: Number(image.width) > 0 ? Number(image.width) : 200,
+              height: Number(image.height) > 0 ? Number(image.height) : 100,
+              custom: false
+            },
+            expand: true
+          },
+          children: []
+        })
+      })
+      return tree
     },
 
     // 轮询进行渲染
@@ -786,7 +754,7 @@ export default {
               .filter(Boolean)
           }
         }
-        return normalize(transformMarkdownTo(content))
+        return this.attachAiCreatingImages(normalize(transformMarkdownTo(content)))
       } catch (error) {
         return null
       }
@@ -1076,6 +1044,7 @@ export default {
       this.startGenerationProgress('reading', '正在读取节点上下文与关联需求')
       this.generationFailed = false
       this.aiCreatingContent = ''
+      this.aiCreatingImages = []
       this.aiCreatingMaskVisible = true
       this.isAiCreating = true
 
@@ -1372,53 +1341,6 @@ export default {
     border-radius: 4px;
   }
 
-  .documentDirectory {
-    display: flex;
-    width: 100%;
-    height: 36px;
-    align-items: center;
-    gap: 7px;
-    box-sizing: border-box;
-    padding-top: 0;
-    padding-right: 12px;
-    padding-bottom: 0;
-    border: 0;
-    border-bottom: 1px solid #ebeef5;
-    color: #606266;
-    background: transparent;
-    text-align: left;
-    cursor: pointer;
-
-    &:hover {
-      background: #f5f7fa;
-    }
-  }
-
-  .documentProject {
-    height: 40px;
-  }
-
-  .documentDirectorySpacer {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 14px;
-  }
-
-  .documentProjectName {
-    color: #303133;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .documentProjectCount {
-    flex: 0 0 auto;
-    color: #909399;
-    font-size: 12px;
-    margin-left: auto;
-  }
-
   .documentEmpty {
     display: flex;
     align-items: center;
@@ -1437,7 +1359,7 @@ export default {
   .documentItem {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 6px;
     min-height: 36px;
     padding: 0 12px;
     border-bottom: 1px solid #ebeef5;
@@ -1452,6 +1374,17 @@ export default {
       background: #f5f7fa;
     }
 
+  }
+
+  .documentItem /deep/ .el-checkbox {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .documentItem /deep/ .el-checkbox__label {
+    display: inline-block;
+    max-width: calc(100% - 28px);
+    vertical-align: middle;
   }
 
   .documentName {
@@ -1481,6 +1414,7 @@ export default {
     color: #409eff;
     font-size: 11px;
     line-height: 20px;
+
   }
 
   .tip {
@@ -1501,7 +1435,6 @@ export default {
 
     .documentSubtitle,
     .documentMeta,
-    .documentProjectCount,
     .documentEmpty {
       color: #a7abb2;
     }
@@ -1525,22 +1458,9 @@ export default {
 
     }
 
-    .documentProjectName {
-      color: #e5e7eb;
-    }
-
     .linkedDocumentTag {
       background: rgba(64, 158, 255, 0.16);
       color: #79bbff;
-    }
-
-    .documentDirectory {
-      border-color: #454a52;
-      color: #d8dbe0;
-
-      &:hover {
-        background: #3a3f46;
-      }
     }
   }
 
