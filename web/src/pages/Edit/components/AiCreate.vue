@@ -174,9 +174,9 @@
           <span class="activityText" role="status" aria-live="polite">
             {{ generationStatus || '正在准备生成内容' }}
           </span>
-          <span v-if="generatedNodeCount" class="nodeCount">
+          <!-- <span v-if="generatedNodeCount" class="nodeCount">
             {{ generatedNodeCount }} 个节点
-          </span>
+          </span> -->
         </div>
       </div>
     </div>
