@@ -31,9 +31,10 @@
 
 <script>
 import { nodeIconList as _nodeIconList } from 'simple-mind-map/src/svg/icons'
-import icon, {
+import {
   CASE_EXECUTION_ICON_TYPE,
-  findSameExecutionEnvironmentIconIndex
+  findSameExecutionEnvironmentIconIndex,
+  getOrderedNodeIconList
 } from '@/config/icon'
 import { mapState } from 'vuex'
 
@@ -52,18 +53,7 @@ export default {
       dynamicIconList: state => state.dynamicIconList
     }),
     nodeIconList() {
-      const executionGroups = icon.filter(
-        item => item.type === CASE_EXECUTION_ICON_TYPE
-      )
-      const otherCustomGroups = icon.filter(
-        item => item.type !== CASE_EXECUTION_ICON_TYPE
-      )
-      return [
-        ..._nodeIconList,
-        ...executionGroups,
-        ...this.dynamicIconList,
-        ...otherCustomGroups
-      ]
+      return getOrderedNodeIconList(_nodeIconList, this.dynamicIconList)
     }
   },
   created() {

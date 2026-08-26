@@ -63,9 +63,10 @@ import Sidebar from './Sidebar.vue'
 import { mapState } from 'vuex'
 import { nodeIconList } from 'simple-mind-map/src/svg/icons'
 import { mergerIconList } from 'simple-mind-map/src/utils/index'
-import icon, {
+import {
   CASE_EXECUTION_ICON_TYPE,
-  findSameExecutionEnvironmentIconIndex
+  findSameExecutionEnvironmentIconIndex,
+  getOrderedNodeIconList
 } from '@/config/icon'
 import image from '@/config/image'
 
@@ -90,18 +91,9 @@ export default {
       dynamicIconList: state => state.dynamicIconList
     }),
     nodeIconList() {
-      const executionGroups = icon.filter(
-        item => item.type === CASE_EXECUTION_ICON_TYPE
-      )
-      const otherCustomGroups = icon.filter(
-        item => item.type !== CASE_EXECUTION_ICON_TYPE
-      )
-      return mergerIconList([
-        ...nodeIconList,
-        ...executionGroups,
-        ...this.dynamicIconList,
-        ...otherCustomGroups
-      ]).filter(item => item.type !== 'user')
+      return mergerIconList(
+        getOrderedNodeIconList(nodeIconList, this.dynamicIconList)
+      ).filter(item => item.type !== 'user')
     }
   },
   watch: {

@@ -82,6 +82,16 @@
             当前导图暂无关联文档
           </div>
         </div>
+        <div v-if="platformAiContext" class="generationModeSection">
+          <div class="generationModeLabel">生成模式</div>
+          <el-radio-group
+            v-model="generationMode"
+            class="generationModeControl"
+          >
+            <el-radio-button label="fast">快速</el-radio-button>
+            <el-radio-button label="quality">质量</el-radio-button>
+          </el-radio-group>
+        </div>
         <div v-if="platformAiContext" class="promptLabel">
           补充生成要求（可选）
         </div>
@@ -213,29 +223,30 @@ import {
   getStrWithBrFromHtml
 } from 'simple-mind-map/src/utils'
 
+const AI_STREAM_RENDER_INTERVAL = 120
 const aiMarkerTagMap = {
+  模块: '模块',
+  场景: '场景',
+  测试点: '测试点',
   P0: 'P0',
   P1: 'P1',
   P2: 'P2',
   P3: 'P3',
-  需确认: '待定',
   前置条件: '前置条件',
-  测试数据: '测试数据',
   操作步骤: '操作步骤',
   预期结果: '预期结果'
 }
-const aiTagMarkerPattern = /\[(P[0-3]|需确认|前置条件|测试数据|操作步骤|预期结果)\]/g
+const aiTagMarkerPattern =
+  /\[(模块|场景|测试点|P[0-3]|前置条件|操作步骤|预期结果)\]/g
 const aiContinuationRoleTransitions = {
   structural: ['structural', 'test_case'],
-  test_case: ['precondition', 'test_data', 'operation'],
-  precondition: ['test_data', 'operation'],
-  test_data: ['operation'],
-  operation: ['expected_result', 'operation'],
+  test_case: ['precondition', 'operation'],
+  precondition: ['precondition', 'operation'],
+  operation: ['expected_result'],
   expected_result: ['operation']
 }
 const aiSemanticNodeRoles = [
   'precondition',
-  'test_data',
   'operation',
   'expected_result'
 ]
@@ -245,8 +256,8 @@ const getAiNodeRole = data => {
   const tagTexts = tags.map(tag =>
     typeof tag === 'string' ? tag : tag && (tag.text || tag.label || tag.name)
   )
+  if (tagTexts.includes('测试点')) return 'test_case'
   if (tagTexts.includes('前置条件')) return 'precondition'
-  if (tagTexts.includes('测试数据')) return 'test_data'
   if (tagTexts.includes('操作步骤')) return 'operation'
   if (tagTexts.includes('预期结果')) return 'expected_result'
   if (tagTexts.some(tag => /^P[0-3]$/.test(tag || ''))) return 'test_case'
@@ -289,6 +300,8 @@ export default {
       aiCreatingImages: [],
 
       isLoopRendering: false,
+      aiRenderTimer: null,
+      aiCreatingTreeInitialized: false,
       uidMap: {},
       latestUid: '',
 
@@ -297,6 +310,7 @@ export default {
       aiInput: '',
       aiCreatingMaskVisible: false,
       platformAiContext: null,
+      generationMode: 'quality',
       selectedDocumentIds: [],
       documentNodes: [],
       documentCount: 0,
@@ -332,6 +346,7 @@ export default {
     this.$bus.$off('ai_chat', this.aiChat)
     this.$bus.$off('ai_chat_stop', this.aiChatStop)
     this.stopGenerationTimer()
+    this.stopAiRenderTimer()
   },
   computed: {
     isDark() {
@@ -433,6 +448,7 @@ export default {
             return
           }
           this.platformAiContext = context
+          this.generationMode = 'quality'
           const linkedDocuments = Array.isArray(context.documents)
             ? context.documents.filter(item => item.isLinked !== false)
             : []
@@ -472,7 +488,8 @@ export default {
         this.selectedDocumentIds = []
         return
       }
-      const linkedDocuments = (this.platformAiContext && this.platformAiContext.documents) || []
+      const linkedDocuments =
+        (this.platformAiContext && this.platformAiContext.documents) || []
       this.selectedDocumentIds = [
         ...new Set(
           linkedDocuments
@@ -497,6 +514,7 @@ export default {
       this.startGenerationProgress('generating', '正在生成导图结构与测试节点')
       this.aiCreatingMaskVisible = true
       this.aiCreatingImages = []
+      this.aiCreatingTreeInitialized = false
       // 发起请求
       this.isAiCreating = true
       this.aiInstance = new Ai()
@@ -544,6 +562,7 @@ export default {
       }
       const payload = {
         mindmap_id: this.platformAiContext.mindmapId,
+        generation_mode: this.generationMode,
         prompt: aiInputText || null,
         document_ids: [...this.selectedDocumentIds]
       }
@@ -552,6 +571,7 @@ export default {
       this.generationFailed = false
       this.aiCreatingContent = ''
       this.aiCreatingImages = []
+      this.aiCreatingTreeInitialized = false
       this.fullGenerationDataCache = JSON.stringify(this.mindMap.getData())
       this.aiCreatingMaskVisible = true
       this.isAiCreating = true
@@ -568,8 +588,6 @@ export default {
         },
         onDelta: data => {
           if (!data.content) return
-          this.generationStage = 'generating'
-          this.generationStatus = '正在生成导图结构与测试节点'
           this.aiCreatingContent += data.content
           this.loopRenderOnAiCreating()
         },
@@ -632,6 +650,25 @@ export default {
       }
     },
 
+    stopAiRenderTimer() {
+      if (!this.aiRenderTimer) return
+      window.clearTimeout(this.aiRenderTimer)
+      this.aiRenderTimer = null
+    },
+
+    scheduleNextAiRender(type) {
+      this.stopAiRenderTimer()
+      this.aiRenderTimer = window.setTimeout(() => {
+        this.aiRenderTimer = null
+        this.isLoopRendering = false
+        if (type === 'part') {
+          this.loopRenderOnAiCreatingPart()
+        } else {
+          this.loopRenderOnAiCreating()
+        }
+      }, AI_STREAM_RENDER_INTERVAL)
+    },
+
     // AI请求完成或出错后需要复位的数据
     resetOnAiCreatingStop() {
       this.stopGenerationTimer()
@@ -645,7 +682,9 @@ export default {
 
     // 渲染结束后需要复位的数据
     resetOnRenderEnd() {
+      this.stopAiRenderTimer()
       this.isLoopRendering = false
+      this.aiCreatingTreeInitialized = false
       this.uidMap = {}
       this.aiCreatingContent = ''
       this.aiCreatingImages = []
@@ -669,7 +708,10 @@ export default {
     },
 
     findAiImageTarget(root, image) {
-      const normalize = value => String(value || '').replace(/\s+/g, '').trim()
+      const normalize = value =>
+        String(value || '')
+          .replace(/\s+/g, '')
+          .trim()
       const targetTitle = normalize(image.document_title)
       const headingPath = String(image.heading_path || '')
         .split('>')
@@ -704,7 +746,8 @@ export default {
         if (!url) return
         const target = this.findAiImageTarget(tree, image)
         if (!target) return
-        if ((target.children || []).some(child => child.data?.image === url)) return
+        if ((target.children || []).some(child => child.data?.image === url))
+          return
         if (!Array.isArray(target.children)) target.children = []
         target.children.push({
           data: {
@@ -722,6 +765,55 @@ export default {
         })
       })
       return tree
+    },
+
+    getAiTaggedNodes(tree, tagText) {
+      const result = []
+      const walk = node => {
+        if (!node || !node.data) return
+        const tagTexts = (Array.isArray(node.data.tag) ? node.data.tag : [])
+          .map(tag =>
+            typeof tag === 'string'
+              ? tag
+              : tag && (tag.text || tag.label || tag.name)
+          )
+          .filter(Boolean)
+        if (tagTexts.includes(tagText)) result.push(node)
+        const children = Array.isArray(node.children) ? node.children : []
+        children.forEach(walk)
+      }
+      walk(tree)
+      return result
+    },
+
+    collapseCompletedModules(tree, includeCurrent = false) {
+      const modules = this.getAiTaggedNodes(tree, '模块')
+      const completedCount = includeCurrent
+        ? modules.length
+        : Math.max(modules.length - 1, 0)
+      for (let index = 0; index < completedCount; index += 1) {
+        const moduleNode = modules[index]
+        if (!moduleNode || !moduleNode.data || !moduleNode.children?.length)
+          continue
+        moduleNode.data = {
+          ...moduleNode.data,
+          expand: false
+        }
+      }
+      return tree
+    },
+
+    syncRenderedAiModuleExpandState(tree) {
+      if (!this.mindMap || !this.mindMap.renderer) return
+      this.getAiTaggedNodes(tree, '模块').forEach(moduleNode => {
+        if (moduleNode.data?.expand !== false || !moduleNode.data.uid) return
+        const renderedNode = this.mindMap.renderer.findNodeByUid(
+          moduleNode.data.uid
+        )
+        if (renderedNode) {
+          this.mindMap.renderer.setNodeData(renderedNode, { expand: false })
+        }
+      })
     },
 
     // 轮询进行渲染
@@ -754,7 +846,8 @@ export default {
               .filter(Boolean)
           }
         }
-        return this.attachAiCreatingImages(normalize(transformMarkdownTo(content)))
+        const tree = normalize(transformMarkdownTo(content))
+        return this.attachAiCreatingImages(tree)
       } catch (error) {
         return null
       }
@@ -771,9 +864,11 @@ export default {
         }
         return
       }
+      this.collapseCompletedModules(treeData, !this.isAiCreating)
       this.isLoopRendering = true
       this.addUid(treeData)
-      let lastTreeData = JSON.stringify(treeData)
+      this.syncRenderedAiModuleExpandState(treeData)
+      const lastTreeData = JSON.stringify(treeData)
 
       // 在当前渲染完成时再进行下一次渲染
       const onRenderEnd = () => {
@@ -789,24 +884,30 @@ export default {
 
         const treeData = this.parseAiCreatingTree()
         if (!treeData) {
-          setTimeout(() => {
-            onRenderEnd()
-          }, 300)
+          this.mindMap.off('node_tree_render_end', onRenderEnd)
+          this.isLoopRendering = false
+          if (!this.isAiCreating) {
+            this.restorePlatformGenerationData()
+            this.resetOnRenderEnd()
+            this.$message.error('AI 返回的导图格式无效，请重新生成')
+          }
           return
         }
+        this.collapseCompletedModules(treeData, !this.isAiCreating)
         this.addUid(treeData)
+        this.syncRenderedAiModuleExpandState(treeData)
         // 正在生成中
         if (this.isAiCreating) {
           // 如果和上次数据一样则不触发重新渲染
           const curTreeData = JSON.stringify(treeData)
           if (curTreeData === lastTreeData) {
-            setTimeout(() => {
-              onRenderEnd()
-            }, 500)
+            this.mindMap.off('node_tree_render_end', onRenderEnd)
+            this.isLoopRendering = false
             return
           }
-          lastTreeData = curTreeData
-          this.mindMap.updateData(treeData)
+          this.mindMap.off('node_tree_render_end', onRenderEnd)
+          this.scheduleNextAiRender('full')
+          return
         } else {
           // 已经生成结束
           // 还要触发一遍渲染，否则会丢失数据
@@ -816,8 +917,12 @@ export default {
         }
       }
       this.mindMap.on('node_tree_render_end', onRenderEnd)
-
-      this.mindMap.setData(treeData)
+      if (this.aiCreatingTreeInitialized) {
+        this.mindMap.updateData(treeData)
+      } else {
+        this.aiCreatingTreeInitialized = true
+        this.mindMap.setData(treeData)
+      }
     },
 
     // 处理超出画布的节点
@@ -909,6 +1014,15 @@ export default {
     async showAiCreatePartDialog(node) {
       this.beingCreatePartNode = node
       this.aiPartInput = ''
+      if (
+        getAiNodeRole({ tag: node?.getData('tag') || [] }) === 'expected_result'
+      ) {
+        this.$message.warning(
+          '预期结果是叶子节点，请选择所属操作补充结果，或选择所属用例补充后续操作'
+        )
+        this.resetAiCreatePartDialog()
+        return
+      }
       const getContext = window.takeOverApp && window.parent.getAiMindmapContext
       if (typeof getContext === 'function') {
         try {
@@ -1055,8 +1169,6 @@ export default {
         },
         onDelta: data => {
           if (!data.content) return
-          this.generationStage = 'generating'
-          this.generationStatus = '正在续写目标节点'
           this.aiCreatingContent += data.content
           this.loopRenderOnAiCreatingPart()
         },
@@ -1171,7 +1283,7 @@ export default {
       partData.children = validation.children
       this.isLoopRendering = true
       this.addUid(partData)
-      let lastPartData = JSON.stringify(partData)
+      const lastPartData = JSON.stringify(partData)
       const treeData = this.addToTargetNode(partData.children || [])
 
       // 在当前渲染完成时再进行下一次渲染
@@ -1188,9 +1300,13 @@ export default {
 
         const partData = this.parseAiCreatingTree()
         if (!partData) {
-          setTimeout(() => {
-            onRenderEnd()
-          }, 300)
+          this.mindMap.off('node_tree_render_end', onRenderEnd)
+          this.isLoopRendering = false
+          if (!this.isAiCreating) {
+            this.restorePartGenerationData()
+            this.resetOnRenderEnd()
+            this.$message.error('AI 续写结果格式无效，请重试')
+          }
           return
         }
         const validation = this.validateContinuationChildren(
@@ -1198,9 +1314,8 @@ export default {
         )
         if (!validation.children.length && validation.invalidCount > 0) {
           if (this.isAiCreating) {
-            setTimeout(() => {
-              onRenderEnd()
-            }, 300)
+            this.mindMap.off('node_tree_render_end', onRenderEnd)
+            this.isLoopRendering = false
           } else {
             this.mindMap.off('node_tree_render_end', onRenderEnd)
             this.restorePartGenerationData()
@@ -1217,13 +1332,13 @@ export default {
           // 如果和上次数据一样则不触发重新渲染
           const curPartData = JSON.stringify(partData)
           if (curPartData === lastPartData) {
-            setTimeout(() => {
-              onRenderEnd()
-            }, 500)
+            this.mindMap.off('node_tree_render_end', onRenderEnd)
+            this.isLoopRendering = false
             return
           }
-          lastPartData = curPartData
-          this.mindMap.updateData(treeData)
+          this.mindMap.off('node_tree_render_end', onRenderEnd)
+          this.scheduleNextAiRender('part')
+          return
         } else {
           this.mindMap.updateData(treeData)
           this.resetOnRenderEnd()
@@ -1334,6 +1449,67 @@ export default {
     margin-bottom: 8px;
   }
 
+  .generationModeSection {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .generationModeLabel {
+    color: #303133;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .generationModeControl {
+    display: flex;
+    width: 168px;
+    padding: 2px;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    background: #f5f7fa;
+    box-sizing: border-box;
+  }
+
+  .generationModeControl /deep/ .el-radio-button {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .generationModeControl /deep/ .el-radio-button__inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 25px;
+    padding: 0 12px;
+    border: 0 !important;
+    border-radius: 3px !important;
+    background: transparent;
+    color: #606266;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 25px;
+    box-shadow: none !important;
+    box-sizing: border-box;
+    transition: color 160ms ease, background-color 160ms ease;
+
+    &:hover {
+      color: #409eff;
+    }
+  }
+
+  .generationModeControl
+    /deep/
+    .el-radio-button__orig-radio:checked
+    + .el-radio-button__inner {
+    background: #d9ecff;
+    color: #1682e8;
+    font-weight: 500;
+    box-shadow: inset 0 0 0 1px #b3d8ff !important;
+  }
+
   .documentList {
     max-height: 260px;
     overflow-y: auto;
@@ -1373,7 +1549,6 @@ export default {
     &:hover {
       background: #f5f7fa;
     }
-
   }
 
   .documentItem /deep/ .el-checkbox {
@@ -1414,7 +1589,6 @@ export default {
     color: #409eff;
     font-size: 11px;
     line-height: 20px;
-
   }
 
   .tip {
@@ -1429,7 +1603,8 @@ export default {
 .createDialog.isDark {
   .inputBox {
     .documentTitle,
-    .promptLabel {
+    .promptLabel,
+    .generationModeLabel {
       color: #e5e7eb;
     }
 
@@ -1449,13 +1624,35 @@ export default {
       background: #30343a;
     }
 
+    .generationModeControl {
+      border-color: #4c5159;
+      background: #30343a;
+    }
+
+    .generationModeControl /deep/ .el-radio-button__inner {
+      background: transparent;
+      color: #a7abb2;
+
+      &:hover {
+        color: #79bbff;
+      }
+    }
+
+    .generationModeControl
+      /deep/
+      .el-radio-button__orig-radio:checked
+      + .el-radio-button__inner {
+      background: rgba(64, 158, 255, 0.28);
+      color: #9ac9ff;
+      box-shadow: inset 0 0 0 1px rgba(121, 187, 255, 0.42) !important;
+    }
+
     .documentItem {
       border-color: #454a52;
 
       &:hover {
         background: #3a3f46;
       }
-
     }
 
     .linkedDocumentTag {
@@ -1509,7 +1706,6 @@ export default {
     box-shadow: 0 16px 34px rgba(31, 45, 61, 0.13),
       0 3px 8px rgba(31, 45, 61, 0.06);
     box-sizing: border-box;
-    backdrop-filter: blur(10px);
   }
 
   .creatingHeader,
@@ -1554,8 +1750,8 @@ export default {
 
   .stopGeneratingButton {
     flex: 0 0 auto;
-    height: 31px;
-    padding: 0 11px;
+    height: 26px;
+    padding: 0 10px;
     border-color: #d6dde6;
     border-radius: 5px;
     background: transparent;
@@ -1617,7 +1813,17 @@ export default {
     &.active .stepMarker {
       border-color: #2d6fb5;
       background: #fff;
-      animation: activeStepPulse 1.6s ease-in-out infinite;
+
+      &::before {
+        position: absolute;
+        inset: -5px;
+        border: 2px solid rgba(45, 111, 181, 0.2);
+        border-radius: 50%;
+        content: '';
+        pointer-events: none;
+        animation: activeStepPulse 1.6s ease-in-out infinite;
+        will-change: opacity, transform;
+      }
 
       &::after {
         width: 6px;
@@ -1626,6 +1832,7 @@ export default {
         background: #2d6fb5;
         content: '';
         animation: activeStepDot 1.6s ease-in-out infinite;
+        will-change: opacity, transform;
       }
     }
 
@@ -1785,10 +1992,12 @@ export default {
 @keyframes activeStepPulse {
   0%,
   100% {
-    box-shadow: 0 0 0 3px rgba(45, 111, 181, 0.08);
+    opacity: 0.45;
+    transform: scale(0.82);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(45, 111, 181, 0.16);
+    opacity: 1;
+    transform: scale(1.12);
   }
 }
 
@@ -1806,7 +2015,7 @@ export default {
 
 @media (prefers-reduced-motion: reduce) {
   .aiCreatingMask {
-    .generationStep.active .stepMarker,
+    .generationStep.active .stepMarker::before,
     .generationStep.active .stepMarker::after {
       animation: none;
     }

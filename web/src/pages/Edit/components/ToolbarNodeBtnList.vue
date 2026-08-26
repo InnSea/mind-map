@@ -281,7 +281,7 @@ const quickTagGroups = [
   {
     title: '状态与缺陷',
     columns: 2,
-    tags: ['待定', '🐛 BUG: #', '🐛 线上BUG: #']
+    tags: ['🐛 BUG: #', '🐛 线上BUG: #']
   }
 ]
 const maxTag = 5
@@ -565,7 +565,7 @@ export default {
 
 // 快捷标签弹窗（挂载在 body 上，样式不能 scoped）
 .quickTagPopover {
-  width: 244px;
+  width: 320px;
   padding: 10px;
 
   .quickTagList {
@@ -624,10 +624,8 @@ export default {
     }
 
     .quickTagText {
-      overflow: hidden;
       font-size: 12px;
       text-align: left;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 

@@ -11,7 +11,6 @@ export const nodeTagColorMap = {
   P3: '#64748b',
   核心: '#7c3aed',
   高风险: '#b91c1c',
-  待定: '#d97706',
   知识补充: '#0f766e',
   '🐛 BUG: #': '#f56c6c',
   '🐛 线上BUG: #': '#dc2626'

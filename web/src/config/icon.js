@@ -195,7 +195,7 @@ export const findSameExecutionEnvironmentIconIndex = (iconList, type, name) => {
   return iconList.findIndex(item => item.startsWith(`${type}_${environment}`))
 }
 
-export default [
+const icon = [
   // {
   //   name: '执行状态图标',
   //   type: CASE_EXECUTION_ICON_TYPE,
@@ -262,3 +262,30 @@ export default [
     })
   }
 ]
+
+export default icon
+
+// 图标选择器分组展示顺序：进度 → 多彩标记 → 用户图标 → 优先级 → 五角星/旗帜 → 其余
+export const getOrderedNodeIconList = (builtinList = [], dynamicList = []) => {
+  const progressGroups = builtinList.filter(item => item.type === 'progress')
+  const priorityGroups = builtinList.filter(item => item.type === 'priority')
+  const sign2Groups = icon.filter(item => item.type === 'sign2')
+  const starFlagGroups = icon.filter(
+    item => item.type === 'star' || item.type === 'flag'
+  )
+  const restBuiltinGroups = builtinList.filter(
+    item => !['progress', 'priority'].includes(item.type)
+  )
+  const restCustomGroups = icon.filter(
+    item => !['sign2', 'star', 'flag'].includes(item.type)
+  )
+  return [
+    ...progressGroups,
+    ...sign2Groups,
+    ...dynamicList,
+    ...priorityGroups,
+    ...starFlagGroups,
+    ...restBuiltinGroups,
+    ...restCustomGroups
+  ]
+}
