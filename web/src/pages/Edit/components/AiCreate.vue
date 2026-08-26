@@ -666,12 +666,12 @@ export default {
       const stream = generate(payload, {
         onStatus: data => {
           if (this.generationFailed || this.generationStopped) return
-          this.generationStatus = data.message || this.generationStatus
-          this.generationStage = data.stage || this.generationStage
+          this.updateGenerationProgress(data)
         },
         onDelta: data => {
           if (this.generationFailed || this.generationStopped) return
           if (!data.content) return
+          this.markGenerationOutputStarted()
           this.aiCreatingContent += data.content
           this.loopRenderOnAiCreating()
         },
@@ -719,6 +719,27 @@ export default {
           (Date.now() - startedAt) / 1000
         )
       }, 1000)
+    },
+
+    updateGenerationProgress(data = {}) {
+      const nextStage = data.stage
+      const currentStageIndex = this.generationSteps.findIndex(
+        step => step.key === this.generationStage
+      )
+      const nextStageIndex = this.generationSteps.findIndex(
+        step => step.key === nextStage
+      )
+      if (nextStageIndex >= 0 && nextStageIndex < currentStageIndex) return
+      if (nextStageIndex >= 0) this.generationStage = nextStage
+      if (data.message) this.generationStatus = data.message
+    },
+
+    markGenerationOutputStarted() {
+      if (this.generationStage === 'generating') return
+      this.updateGenerationProgress({
+        stage: 'generating',
+        message: '正在输出导图节点'
+      })
     },
 
     stopGenerationTimer() {
@@ -1342,12 +1363,12 @@ export default {
       const stream = continueMindmap(payload, {
         onStatus: data => {
           if (this.generationFailed || this.generationStopped) return
-          this.generationStatus = data.message || this.generationStatus
-          this.generationStage = data.stage || this.generationStage
+          this.updateGenerationProgress(data)
         },
         onDelta: data => {
           if (this.generationFailed || this.generationStopped) return
           if (!data.content) return
+          this.markGenerationOutputStarted()
           this.aiCreatingContent += data.content
           this.loopRenderOnAiCreatingPart()
         },
