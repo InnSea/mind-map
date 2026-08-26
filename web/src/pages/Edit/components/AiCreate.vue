@@ -236,26 +236,38 @@ const aiMarkerTagMap = {
   操作步骤: '操作步骤',
   预期结果: '预期结果'
 }
-const aiTagMarkerPattern =
-  /\[(模块|场景|测试点|P[0-3]|前置条件|操作步骤|预期结果)\]/g
+const aiTagMarkerPattern = /\[(模块|场景|测试点|P[0-3]|前置条件|操作步骤|预期结果)\]/g
 const aiContinuationRoleTransitions = {
-  structural: ['structural', 'test_case'],
+  structural: ['structural', 'module', 'scene', 'test_case'],
+  module: ['scene'],
+  scene: ['test_case'],
   test_case: ['precondition', 'operation'],
-  precondition: ['precondition', 'operation'],
+  precondition: ['operation'],
   operation: ['expected_result'],
   expected_result: ['operation']
 }
-const aiSemanticNodeRoles = [
+const aiSchemaNodeRoles = [
+  'module',
+  'scene',
+  'test_case',
   'precondition',
   'operation',
   'expected_result'
 ]
 
-const getAiNodeRole = data => {
+const getAiTagTexts = data => {
   const tags = Array.isArray(data && data.tag) ? data.tag : []
-  const tagTexts = tags.map(tag =>
-    typeof tag === 'string' ? tag : tag && (tag.text || tag.label || tag.name)
-  )
+  return tags
+    .map(tag =>
+      typeof tag === 'string' ? tag : tag && (tag.text || tag.label || tag.name)
+    )
+    .filter(Boolean)
+}
+
+const getAiNodeRole = data => {
+  const tagTexts = getAiTagTexts(data)
+  if (tagTexts.includes('模块')) return 'module'
+  if (tagTexts.includes('场景')) return 'scene'
   if (tagTexts.includes('测试点')) return 'test_case'
   if (tagTexts.includes('前置条件')) return 'precondition'
   if (tagTexts.includes('操作步骤')) return 'operation'
@@ -264,23 +276,93 @@ const getAiNodeRole = data => {
   return 'structural'
 }
 
-const nodeUsesAiSemanticTag = node => {
+const isAiMediaNode = node => Boolean(node?.data?.image || node?.data?.video)
+const getAiContentChildren = node =>
+  (Array.isArray(node?.children) ? node.children : []).filter(
+    child => !isAiMediaNode(child)
+  )
+
+const mergeNestedAiPreconditions = node => {
+  if (!node) return node
+  node.children = (Array.isArray(node.children) ? node.children : []).map(
+    mergeNestedAiPreconditions
+  )
+  if (getAiNodeRole(node.data) !== 'precondition') return node
+
+  let contentChildren = getAiContentChildren(node)
+  while (
+    contentChildren.length === 1 &&
+    getAiNodeRole(contentChildren[0].data) === 'precondition'
+  ) {
+    const nested = contentChildren[0]
+    const conditions = [node.data?.text, nested.data?.text]
+      .map(text => String(text || '').replace(/[；;。\s]+$/, '').trim())
+      .filter(Boolean)
+    node.data = {
+      ...node.data,
+      text: [...new Set(conditions)].join('；')
+    }
+    const mediaChildren = (node.children || []).filter(isAiMediaNode)
+    node.children = [...mediaChildren, ...(nested.children || [])]
+    contentChildren = getAiContentChildren(node)
+  }
+  return node
+}
+
+const getAiContinuationAllowedRoles = node => {
+  const role = getAiNodeRole({ tag: node?.getData('tag') || [] })
+  if (role !== 'structural') {
+    if (role === 'test_case') {
+      const childRoles = (node.children || []).map(child =>
+        getAiNodeRole({ tag: child?.getData('tag') || [] })
+      )
+      if (childRoles.includes('precondition')) return []
+      if (childRoles.includes('operation')) return ['operation']
+    }
+    return aiContinuationRoleTransitions[role] || []
+  }
+  if (!node?.parent) {
+    const children = node.children || []
+    const hasDocumentContainers =
+      children.length > 0 &&
+      children.every(
+        child =>
+          getAiNodeRole({ tag: child?.getData('tag') || [] }) ===
+            'structural' &&
+          (child.children || []).some(
+            grandchild =>
+              getAiNodeRole({ tag: grandchild?.getData('tag') || [] }) ===
+              'module'
+          )
+      )
+    return hasDocumentContainers ? [] : ['module']
+  }
+  const childRoles = (node.children || []).map(child =>
+    getAiNodeRole({ tag: child?.getData('tag') || [] })
+  )
+  if (childRoles.includes('module')) return ['module']
+  if (childRoles.includes('scene')) return ['scene']
+  if (childRoles.includes('test_case')) return ['test_case']
+  return ['structural', 'test_case']
+}
+
+const nodeUsesAiSchemaTag = node => {
   if (!node || typeof node.getData !== 'function') return false
-  return aiSemanticNodeRoles.includes(
+  return aiSchemaNodeRoles.includes(
     getAiNodeRole({ tag: node.getData('tag') || [] })
   )
 }
 
-const continuationBranchUsesSemanticTags = node => {
+const continuationBranchUsesSchemaTags = node => {
   let current = node
   while (current) {
-    if (nodeUsesAiSemanticTag(current)) return true
+    if (nodeUsesAiSchemaTag(current)) return true
     current = current.parent
   }
 
   const walk = currentNode => {
     if (!currentNode) return false
-    if (nodeUsesAiSemanticTag(currentNode)) return true
+    if (nodeUsesAiSchemaTag(currentNode)) return true
     return (currentNode.children || []).some(child => walk(child))
   }
   return walk(node)
@@ -301,7 +383,7 @@ export default {
 
       isLoopRendering: false,
       aiRenderTimer: null,
-      aiCreatingTreeInitialized: false,
+      aiRenderEndHandler: null,
       uidMap: {},
       latestUid: '',
 
@@ -319,12 +401,13 @@ export default {
       generationElapsedSeconds: 0,
       generationTimer: null,
       generationFailed: false,
-      fullGenerationDataCache: '',
+      generationStopped: false,
 
       mindMapDataCache: '',
       beingAiCreateNodeUid: '',
       beingAiCreateNodeRole: '',
-      beingAiCreateUsesSemanticTags: false,
+      beingAiCreateAllowedChildRoles: [],
+      beingAiCreateUsesSchemaTags: false,
 
       createPartDialogVisible: false,
       aiPartInput: '',
@@ -347,6 +430,7 @@ export default {
     this.$bus.$off('ai_chat_stop', this.aiChatStop)
     this.stopGenerationTimer()
     this.stopAiRenderTimer()
+    this.unbindAiRenderEnd()
   },
   computed: {
     isDark() {
@@ -512,17 +596,16 @@ export default {
       }
       this.closeAiCreateDialog()
       this.startGenerationProgress('generating', '正在生成导图结构与测试节点')
+      this.generationFailed = false
+      this.generationStopped = false
       this.aiCreatingMaskVisible = true
       this.aiCreatingImages = []
-      this.aiCreatingTreeInitialized = false
       // 发起请求
       this.isAiCreating = true
       this.aiInstance = new Ai()
+      this.beginAiRenderPreview()
       this.mindMap.renderer.setRootNodeCenter()
-      this.mindMap.setData({
-        data: { text: '', expand: true, uid: createUid() },
-        children: []
-      })
+      this.renderAiPreviewData(this.createAiInitialTree())
       this.aiInstance.request(
         {
           messages: [
@@ -547,6 +630,8 @@ export default {
           this.loopRenderOnAiCreating(true)
         },
         () => {
+          this.isAiCreating = false
+          this.commitCurrentAiGeneration()
           this.resetOnAiCreatingStop()
           this.resetOnRenderEnd()
           this.$message.error(this.$t('ai.generationFailed'))
@@ -569,35 +654,38 @@ export default {
       this.closeAiCreateDialog()
       this.startGenerationProgress('reading', '正在读取已选择的参考文档')
       this.generationFailed = false
+      this.generationStopped = false
       this.aiCreatingContent = ''
       this.aiCreatingImages = []
-      this.aiCreatingTreeInitialized = false
-      this.fullGenerationDataCache = JSON.stringify(this.mindMap.getData())
+      this.beginAiRenderPreview()
       this.aiCreatingMaskVisible = true
       this.isAiCreating = true
       this.mindMap.renderer.setRootNodeCenter()
-      this.mindMap.setData({
-        data: { text: '', expand: true, uid: createUid() },
-        children: []
-      })
+      this.renderAiPreviewData(this.createAiInitialTree())
 
       const stream = generate(payload, {
         onStatus: data => {
+          if (this.generationFailed || this.generationStopped) return
           this.generationStatus = data.message || this.generationStatus
           this.generationStage = data.stage || this.generationStage
         },
         onDelta: data => {
+          if (this.generationFailed || this.generationStopped) return
           if (!data.content) return
           this.aiCreatingContent += data.content
           this.loopRenderOnAiCreating()
         },
         onImages: data => {
+          if (this.generationFailed || this.generationStopped) return
           this.aiCreatingImages = Array.isArray(data.images) ? data.images : []
           this.loopRenderOnAiCreating()
         },
         onError: data => {
+          if (this.generationStopped) return
           this.generationFailed = true
-          this.restorePlatformGenerationData()
+          this.aiInstance?.stop?.()
+          this.isAiCreating = false
+          this.commitCurrentAiGeneration()
           this.resetOnAiCreatingStop()
           this.resetOnRenderEnd()
           this.$message.error(data.message || this.$t('ai.generationFailed'))
@@ -605,7 +693,7 @@ export default {
         onDone: () => {
           if (this.generationFailed) return
           if (!this.aiCreatingContent.trim()) {
-            this.restorePlatformGenerationData()
+            this.commitCurrentAiGeneration()
             this.resetOnAiCreatingStop()
             this.resetOnRenderEnd()
             this.$message.error(this.$t('ai.generationFailed'))
@@ -618,16 +706,6 @@ export default {
       this.aiInstance = {
         stop: () => stream && stream.abort && stream.abort()
       }
-    },
-
-    restorePlatformGenerationData() {
-      if (!this.fullGenerationDataCache) return
-      try {
-        this.mindMap.setData(JSON.parse(this.fullGenerationDataCache))
-      } catch (error) {
-        console.log(error)
-      }
-      this.fullGenerationDataCache = ''
     },
 
     startGenerationProgress(stage, status) {
@@ -654,6 +732,95 @@ export default {
       if (!this.aiRenderTimer) return
       window.clearTimeout(this.aiRenderTimer)
       this.aiRenderTimer = null
+    },
+
+    beginAiRenderPreview() {
+      const addHistory = this.mindMap?.command?.addHistory
+      if (addHistory && typeof addHistory.flush === 'function') {
+        addHistory.flush()
+      }
+      this.mindMap?.incrementalSync?.flushLocalChanges?.()
+    },
+
+    createAiInitialTree() {
+      const contextMindmapName = String(
+        this.platformAiContext?.mindmapName || ''
+      ).trim()
+      const currentRootText = getStrWithBrFromHtml(
+        this.mindMap?.getData?.()?.data?.text || ''
+      ).trim()
+      const mindmapName = contextMindmapName || currentRootText || '思维导图'
+      return {
+        data: { text: mindmapName, expand: true, uid: createUid() },
+        children: []
+      }
+    },
+
+    renderAiPreviewData(data) {
+      if (!data || !this.mindMap?.renderer) return
+      this.mindMap.renderer.setData(data)
+      this.mindMap.render()
+    },
+
+    commitAiRenderData(data, replace = false) {
+      this.unbindAiRenderEnd()
+      if (replace) {
+        // 完整生成结束时重建一次节点缓存，效果等同刷新后的干净运行时。
+        this.mindMap.setData(data)
+      } else {
+        this.mindMap.updateData(data)
+      }
+      const addHistory = this.mindMap?.command?.addHistory
+      if (addHistory && typeof addHistory.flush === 'function') {
+        addHistory.flush()
+      }
+      this.mindMap?.incrementalSync?.flushLocalChanges?.()
+    },
+
+    getCurrentAiCommitData(isPartGeneration) {
+      if (this.aiCreatingContent.trim()) {
+        if (isPartGeneration) {
+          const partData = this.parseAiCreatingTree()
+          if (partData) {
+            const validation = this.validateContinuationChildren(
+              partData.children || []
+            )
+            if (validation.children.length) {
+              partData.children = validation.children
+              this.addUid(partData)
+              return this.addToTargetNode(partData.children)
+            }
+          }
+        } else {
+          const treeData = this.parseAiCreatingTree()
+          if (treeData) {
+            this.collapseCompletedModules(treeData)
+            this.addUid(treeData)
+            return treeData
+          }
+        }
+      }
+      return this.mindMap.getData()
+    },
+
+    commitCurrentAiGeneration() {
+      const isPartGeneration = Boolean(this.mindMapDataCache)
+      const data = this.getCurrentAiCommitData(isPartGeneration)
+      if (!data) return false
+      this.commitAiRenderData(data, !isPartGeneration)
+      return true
+    },
+
+    bindAiRenderEnd(handler) {
+      this.unbindAiRenderEnd()
+      this.aiRenderEndHandler = handler
+      this.mindMap.on('node_tree_render_end', handler)
+    },
+
+    unbindAiRenderEnd() {
+      if (!this.aiRenderEndHandler || !this.mindMap) return
+      this.mindMap.off('node_tree_render_end', this.aiRenderEndHandler)
+      this.aiRenderEndHandler = null
     },
 
     scheduleNextAiRender(type) {
@@ -683,28 +850,31 @@ export default {
     // 渲染结束后需要复位的数据
     resetOnRenderEnd() {
       this.stopAiRenderTimer()
+      this.unbindAiRenderEnd()
       this.isLoopRendering = false
-      this.aiCreatingTreeInitialized = false
       this.uidMap = {}
       this.aiCreatingContent = ''
       this.aiCreatingImages = []
       this.mindMapDataCache = ''
-      this.fullGenerationDataCache = ''
       this.beingAiCreateNodeUid = ''
       this.beingAiCreateNodeRole = ''
-      this.beingAiCreateUsesSemanticTags = false
+      this.beingAiCreateAllowedChildRoles = []
+      this.beingAiCreateUsesSchemaTags = false
     },
 
     // 停止生成
     stopCreate() {
+      this.generationStopped = true
+      this.generationFailed = true
       if (this.aiInstance) {
         this.aiInstance.stop()
       }
-      if (!this.aiCreatingContent.trim()) {
-        this.restorePlatformGenerationData()
-      }
+      this.isAiCreating = false
+      this.commitCurrentAiGeneration()
+      this.resetAiCreatePartDialog()
       this.resetOnAiCreatingStop()
-      this.$message.success(this.$t('ai.stoppedGenerating'))
+      this.resetOnRenderEnd()
+      this.$message.success('AI 已停止，当前生成内容已保存')
     },
 
     findAiImageTarget(root, image) {
@@ -847,7 +1017,7 @@ export default {
           }
         }
         const tree = normalize(transformMarkdownTo(content))
-        return this.attachAiCreatingImages(tree)
+        return this.attachAiCreatingImages(mergeNestedAiPreconditions(tree))
       } catch (error) {
         return null
       }
@@ -858,9 +1028,9 @@ export default {
       const treeData = this.parseAiCreatingTree()
       if (!treeData) {
         if (showInvalidError) {
-          this.restorePlatformGenerationData()
+          this.commitCurrentAiGeneration()
           this.resetOnRenderEnd()
-          this.$message.error('AI 返回的导图格式无效，请重新生成')
+          this.$message.warning('AI 返回内容未完整结束，已保留当前生成结果')
         }
         return
       }
@@ -877,19 +1047,19 @@ export default {
 
         // 如果生成结束数据渲染完毕，那么解绑事件
         if (!this.isAiCreating && !this.aiCreatingContent) {
-          this.mindMap.off('node_tree_render_end', onRenderEnd)
+          this.unbindAiRenderEnd()
           this.latestUid = ''
           return
         }
 
         const treeData = this.parseAiCreatingTree()
         if (!treeData) {
-          this.mindMap.off('node_tree_render_end', onRenderEnd)
+          this.unbindAiRenderEnd()
           this.isLoopRendering = false
           if (!this.isAiCreating) {
-            this.restorePlatformGenerationData()
+            this.commitCurrentAiGeneration()
             this.resetOnRenderEnd()
-            this.$message.error('AI 返回的导图格式无效，请重新生成')
+            this.$message.warning('AI 返回内容未完整结束，已保留当前生成结果')
           }
           return
         }
@@ -901,28 +1071,22 @@ export default {
           // 如果和上次数据一样则不触发重新渲染
           const curTreeData = JSON.stringify(treeData)
           if (curTreeData === lastTreeData) {
-            this.mindMap.off('node_tree_render_end', onRenderEnd)
+            this.unbindAiRenderEnd()
             this.isLoopRendering = false
             return
           }
-          this.mindMap.off('node_tree_render_end', onRenderEnd)
+          this.unbindAiRenderEnd()
           this.scheduleNextAiRender('full')
           return
         } else {
-          // 已经生成结束
-          // 还要触发一遍渲染，否则会丢失数据
-          this.mindMap.updateData(treeData)
+          // 流式阶段仅做预览，完成后一次性写入撤销历史和协同增量。
+          this.commitAiRenderData(treeData, true)
           this.resetOnRenderEnd()
           this.$message.success(this.$t('ai.aiGenerationSuccess'))
         }
       }
-      this.mindMap.on('node_tree_render_end', onRenderEnd)
-      if (this.aiCreatingTreeInitialized) {
-        this.mindMap.updateData(treeData)
-      } else {
-        this.aiCreatingTreeInitialized = true
-        this.mindMap.setData(treeData)
-      }
+      this.bindAiRenderEnd(onRenderEnd)
+      this.renderAiPreviewData(treeData)
     },
 
     // 处理超出画布的节点
@@ -1077,11 +1241,17 @@ export default {
         this.beingAiCreateNodeRole = getAiNodeRole({
           tag: this.beingCreatePartNode.getData('tag') || []
         })
-        this.beingAiCreateUsesSemanticTags = continuationBranchUsesSemanticTags(
+        this.beingAiCreateAllowedChildRoles = getAiContinuationAllowedRoles(
           this.beingCreatePartNode
         )
+        this.beingAiCreateUsesSchemaTags = continuationBranchUsesSchemaTags(
+          this.beingCreatePartNode
+        )
+        this.beginAiRenderPreview()
         const currentMindMapData = this.mindMap.getData()
         this.mindMapDataCache = JSON.stringify(currentMindMapData)
+        this.generationFailed = false
+        this.generationStopped = false
         this.aiCreatingMaskVisible = true
         // 发起请求
         this.isAiCreating = true
@@ -1120,6 +1290,8 @@ export default {
             this.loopRenderOnAiCreatingPart()
           },
           () => {
+            this.isAiCreating = false
+            this.commitCurrentAiGeneration()
             this.resetOnAiCreatingStop()
             this.resetAiCreatePartDialog()
             this.resetOnRenderEnd()
@@ -1143,9 +1315,13 @@ export default {
       this.beingAiCreateNodeRole = getAiNodeRole({
         tag: this.beingCreatePartNode.getData('tag') || []
       })
-      this.beingAiCreateUsesSemanticTags = continuationBranchUsesSemanticTags(
+      this.beingAiCreateAllowedChildRoles = getAiContinuationAllowedRoles(
         this.beingCreatePartNode
       )
+      this.beingAiCreateUsesSchemaTags = continuationBranchUsesSchemaTags(
+        this.beingCreatePartNode
+      )
+      this.beginAiRenderPreview()
       const currentMindMapData = this.mindMap.getData()
       this.mindMapDataCache = JSON.stringify(currentMindMapData)
       const payload = {
@@ -1157,6 +1333,7 @@ export default {
 
       this.startGenerationProgress('reading', '正在读取节点上下文与关联需求')
       this.generationFailed = false
+      this.generationStopped = false
       this.aiCreatingContent = ''
       this.aiCreatingImages = []
       this.aiCreatingMaskVisible = true
@@ -1164,17 +1341,22 @@ export default {
 
       const stream = continueMindmap(payload, {
         onStatus: data => {
+          if (this.generationFailed || this.generationStopped) return
           this.generationStatus = data.message || this.generationStatus
           this.generationStage = data.stage || this.generationStage
         },
         onDelta: data => {
+          if (this.generationFailed || this.generationStopped) return
           if (!data.content) return
           this.aiCreatingContent += data.content
           this.loopRenderOnAiCreatingPart()
         },
         onError: data => {
+          if (this.generationStopped) return
           this.generationFailed = true
-          this.restorePartGenerationData()
+          this.aiInstance?.stop?.()
+          this.isAiCreating = false
+          this.commitCurrentAiGeneration()
           this.resetOnAiCreatingStop()
           this.resetAiCreatePartDialog()
           this.resetOnRenderEnd()
@@ -1183,7 +1365,7 @@ export default {
         onDone: () => {
           if (this.generationFailed) return
           if (!this.aiCreatingContent.trim()) {
-            this.restorePartGenerationData()
+            this.commitCurrentAiGeneration()
             this.resetOnAiCreatingStop()
             this.resetAiCreatePartDialog()
             this.resetOnRenderEnd()
@@ -1200,20 +1382,13 @@ export default {
       }
     },
 
-    restorePartGenerationData() {
-      if (!this.mindMapDataCache) return
-      try {
-        this.mindMap.setData(JSON.parse(this.mindMapDataCache))
-      } catch (error) {
-        console.log(error)
-      }
-    },
-
     validateContinuationChildren(children) {
       if (
         !this.platformAiContext ||
-        !this.beingAiCreateUsesSemanticTags ||
-        this.beingAiCreateNodeRole === 'structural'
+        (!this.beingAiCreateUsesSchemaTags &&
+          !this.beingAiCreateAllowedChildRoles.some(role =>
+            ['module', 'scene'].includes(role)
+          ))
       ) {
         return {
           children: Array.isArray(children) ? children : [],
@@ -1221,9 +1396,11 @@ export default {
         }
       }
       let invalidCount = 0
-      const validate = (node, parentRole) => {
+      const validate = (node, parentRole, isDirectChild = false) => {
         const role = getAiNodeRole(node && node.data)
-        const allowedRoles = aiContinuationRoleTransitions[parentRole] || []
+        const allowedRoles = isDirectChild
+          ? this.beingAiCreateAllowedChildRoles
+          : aiContinuationRoleTransitions[parentRole] || []
         if (!allowedRoles.includes(role)) {
           invalidCount += 1
           return null
@@ -1235,12 +1412,10 @@ export default {
             .filter(Boolean)
         }
       }
-      return {
-        children: (Array.isArray(children) ? children : [])
-          .map(child => validate(child, this.beingAiCreateNodeRole))
-          .filter(Boolean),
-        invalidCount
-      }
+      const validChildren = (Array.isArray(children) ? children : [])
+        .map(child => validate(child, this.beingAiCreateNodeRole, true))
+        .filter(Boolean)
+      return { children: validChildren, invalidCount }
     },
 
     // 将生成的数据添加到指定节点上
@@ -1274,9 +1449,9 @@ export default {
       )
       if (!validation.children.length && validation.invalidCount > 0) {
         if (!this.isAiCreating) {
-          this.restorePartGenerationData()
+          this.commitCurrentAiGeneration()
           this.resetOnRenderEnd()
-          this.$message.error('AI 续写结果不符合当前节点的结构规范，请重试')
+          this.$message.warning('AI 续写未形成可追加节点，已保留当前导图结果')
         }
         return
       }
@@ -1293,19 +1468,19 @@ export default {
 
         // 如果生成结束数据渲染完毕，那么解绑事件
         if (!this.isAiCreating && !this.aiCreatingContent) {
-          this.mindMap.off('node_tree_render_end', onRenderEnd)
+          this.unbindAiRenderEnd()
           this.latestUid = ''
           return
         }
 
         const partData = this.parseAiCreatingTree()
         if (!partData) {
-          this.mindMap.off('node_tree_render_end', onRenderEnd)
+          this.unbindAiRenderEnd()
           this.isLoopRendering = false
           if (!this.isAiCreating) {
-            this.restorePartGenerationData()
+            this.commitCurrentAiGeneration()
             this.resetOnRenderEnd()
-            this.$message.error('AI 续写结果格式无效，请重试')
+            this.$message.warning('AI 续写内容未完整结束，已保留当前生成结果')
           }
           return
         }
@@ -1314,13 +1489,13 @@ export default {
         )
         if (!validation.children.length && validation.invalidCount > 0) {
           if (this.isAiCreating) {
-            this.mindMap.off('node_tree_render_end', onRenderEnd)
+            this.unbindAiRenderEnd()
             this.isLoopRendering = false
           } else {
-            this.mindMap.off('node_tree_render_end', onRenderEnd)
-            this.restorePartGenerationData()
+            this.unbindAiRenderEnd()
+            this.commitCurrentAiGeneration()
             this.resetOnRenderEnd()
-            this.$message.error('AI 续写结果不符合当前节点的结构规范，请重试')
+            this.$message.warning('AI 续写未形成可追加节点，已保留当前导图结果')
           }
           return
         }
@@ -1332,22 +1507,21 @@ export default {
           // 如果和上次数据一样则不触发重新渲染
           const curPartData = JSON.stringify(partData)
           if (curPartData === lastPartData) {
-            this.mindMap.off('node_tree_render_end', onRenderEnd)
+            this.unbindAiRenderEnd()
             this.isLoopRendering = false
             return
           }
-          this.mindMap.off('node_tree_render_end', onRenderEnd)
+          this.unbindAiRenderEnd()
           this.scheduleNextAiRender('part')
           return
         } else {
-          this.mindMap.updateData(treeData)
+          this.commitAiRenderData(treeData)
           this.resetOnRenderEnd()
           this.$message.success(this.$t('ai.aiGenerationSuccess'))
         }
       }
-      this.mindMap.on('node_tree_render_end', onRenderEnd)
-      // 因为是续写，所以首次也直接使用updateData方法渲染
-      this.mindMap.updateData(treeData)
+      this.bindAiRenderEnd(onRenderEnd)
+      this.renderAiPreviewData(treeData)
     },
 
     // AI对话
