@@ -7,6 +7,13 @@ const getNodeText = node => {
   ;(node.children || []).forEach(item => {
     if (['inlineCode', 'text'].includes(item.type)) {
       textStr += item.value || ''
+    } else if (item.type === 'break') {
+      textStr += '\n'
+    } else if (
+      item.type === 'html' &&
+      /^<br\s*\/?\s*>$/i.test(item.value || '')
+    ) {
+      textStr += '\n'
     } else {
       textStr += getNodeText(item)
     }

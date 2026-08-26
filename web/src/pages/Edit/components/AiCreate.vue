@@ -282,6 +282,20 @@ const getAiContentChildren = node =>
     child => !isAiMediaNode(child)
   )
 
+const normalizeAiPreconditionText = (...values) =>
+  [
+    ...new Set(
+      values
+        .flatMap(value =>
+          String(value || '')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .split(/\r?\n|[；;]+/)
+        )
+        .map(text => text.trim())
+        .filter(Boolean)
+    )
+  ].join('\n')
+
 const mergeNestedAiPreconditions = node => {
   if (!node) return node
   node.children = (Array.isArray(node.children) ? node.children : []).map(
@@ -289,18 +303,20 @@ const mergeNestedAiPreconditions = node => {
   )
   if (getAiNodeRole(node.data) !== 'precondition') return node
 
+  node.data = {
+    ...node.data,
+    text: normalizeAiPreconditionText(node.data?.text)
+  }
+
   let contentChildren = getAiContentChildren(node)
   while (
     contentChildren.length === 1 &&
     getAiNodeRole(contentChildren[0].data) === 'precondition'
   ) {
     const nested = contentChildren[0]
-    const conditions = [node.data?.text, nested.data?.text]
-      .map(text => String(text || '').replace(/[；;。\s]+$/, '').trim())
-      .filter(Boolean)
     node.data = {
       ...node.data,
-      text: [...new Set(conditions)].join('；')
+      text: normalizeAiPreconditionText(node.data?.text, nested.data?.text)
     }
     const mediaChildren = (node.children || []).filter(isAiMediaNode)
     node.children = [...mediaChildren, ...(nested.children || [])]
@@ -1024,7 +1040,7 @@ export default {
               if (tag && !markerTags.includes(tag)) markerTags.push(tag)
               return ''
             })
-            .replace(/\s{2,}/g, ' ')
+            .replace(/[^\S\r\n]{2,}/g, ' ')
             .trim()
           if (!text) return null
           const data = { ...node.data, text }
