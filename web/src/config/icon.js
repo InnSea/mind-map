@@ -265,7 +265,7 @@ const icon = [
 
 export default icon
 
-// 图标选择器分组展示顺序：进度 → 多彩标记 → 用户图标 → 优先级 → 五角星/旗帜 → 其余
+// 图标选择器分组展示顺序：进度 → 优先级 → 多彩标记 → 用户图标 → 五角星/旗帜 → 其余
 export const getOrderedNodeIconList = (builtinList = [], dynamicList = []) => {
   const progressGroups = builtinList.filter(item => item.type === 'progress')
   const priorityGroups = builtinList.filter(item => item.type === 'priority')
@@ -281,9 +281,9 @@ export const getOrderedNodeIconList = (builtinList = [], dynamicList = []) => {
   )
   return [
     ...progressGroups,
+    ...priorityGroups,
     ...sign2Groups,
     ...dynamicList,
-    ...priorityGroups,
     ...starFlagGroups,
     ...restBuiltinGroups,
     ...restCustomGroups

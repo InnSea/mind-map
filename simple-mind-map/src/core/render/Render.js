@@ -13,6 +13,8 @@ import {
   walk,
   bfsWalk,
   loadImage,
+  getImageSize,
+  resizeImgSize,
   isUndef,
   getTopAncestorsFomNodeList,
   addDataToAppointNodes,
@@ -96,6 +98,8 @@ class Render {
     this.renderCallbackList = []
     // 当前激活的节点列表
     this.activeNodeList = []
+    // 节点图片上传中的本地临时状态，不写入节点数据和历史记录
+    this.nodeImageUploadState = new Map()
     // 防抖定时器
     this.emitNodeActiveEventTimer = null
     this.renderRafId = null
@@ -136,6 +140,7 @@ class Render {
 
   // 重新设置思维导图数据
   setData(data) {
+    this.nodeImageUploadState.clear()
     this.renderTree = data || null
   }
 
@@ -1251,6 +1256,123 @@ class Render {
     this.paste()
   }
 
+  // 获取节点图片上传中的本地临时状态
+  getNodeImageUploadState(node) {
+    const uid = typeof node === 'string' ? node : node && node.getData('uid')
+    return uid ? this.nodeImageUploadState.get(uid) || null : null
+  }
+
+  getNodeImageUploadShowSize(node, imageSize) {
+    const sourceWidth = Number(imageSize && imageSize.width)
+    const sourceHeight = Number(imageSize && imageSize.height)
+    if (sourceWidth > 0 && sourceHeight > 0) {
+      return resizeImgSize(
+        sourceWidth,
+        sourceHeight,
+        this.themeConfig.imgMaxWidth,
+        this.themeConfig.imgMaxHeight
+      )
+    }
+    const currentUploadState = this.getNodeImageUploadState(node)
+    if (currentUploadState) {
+      return [currentUploadState.width, currentUploadState.height]
+    }
+    const currentImageSize = node.getData('imageSize')
+    if (
+      node.getData('image') &&
+      currentImageSize &&
+      Number(currentImageSize.width) > 0 &&
+      Number(currentImageSize.height) > 0
+    ) {
+      return node.getImgShowSize()
+    }
+    return [120, 72]
+  }
+
+  // 创建图片上传任务。读取到实际尺寸前可仅登记任务，不触发节点刷新。
+  createNodeImageUploadTask(nodes, imageSize, refresh = true) {
+    const token = createUid()
+    const uids = []
+    nodes.forEach(node => {
+      const uid = node && node.getData('uid')
+      if (!uid) return
+      const [width, height] = this.getNodeImageUploadShowSize(node, imageSize)
+      this.nodeImageUploadState.set(uid, {
+        token,
+        width,
+        height
+      })
+      uids.push(uid)
+    })
+    if (refresh) this.refreshNodeImageUploadState(uids)
+    return { token, uids }
+  }
+
+  updateNodeImageUploadTask(task, imageSize) {
+    const uids = []
+    task.uids.forEach(uid => {
+      const state = this.nodeImageUploadState.get(uid)
+      if (!state || state.token !== task.token) return
+      const node = this.findNodeByUid(uid)
+      if (!node) return
+      const [width, height] = this.getNodeImageUploadShowSize(node, imageSize)
+      this.nodeImageUploadState.set(uid, {
+        ...state,
+        width,
+        height
+      })
+      uids.push(uid)
+    })
+    this.refreshNodeImageUploadState(uids)
+  }
+
+  // 只消费仍属于当前任务的节点，避免较慢的旧上传覆盖后一次粘贴
+  consumeNodeImageUploadTask(task) {
+    const nodes = []
+    task.uids.forEach(uid => {
+      const state = this.nodeImageUploadState.get(uid)
+      if (!state || state.token !== task.token) return
+      this.nodeImageUploadState.delete(uid)
+      const node = this.findNodeByUid(uid)
+      if (node) nodes.push(node)
+    })
+    return nodes
+  }
+
+  refreshNodeImageUploadState(uids) {
+    let refreshed = false
+    let sizeChanged = false
+    const uniqueUids = [...new Set(uids)]
+    uniqueUids.forEach(uid => {
+      const node = this.findNodeByUid(uid)
+      if (!node || !node.group) return
+      sizeChanged = node.reRender(['image']) || sizeChanged
+      refreshed = true
+    })
+    if (sizeChanged) {
+      this.mindMap.render()
+    } else if (refreshed) {
+      this.mindMap.emit('node_tree_render_end')
+    }
+  }
+
+  cancelNodeImageUploadTask(task) {
+    const nodes = this.consumeNodeImageUploadTask(task)
+    this.refreshNodeImageUploadState(
+      nodes.map(node => node.getData('uid')).filter(Boolean)
+    )
+  }
+
+  // 使用对象 URL 读取本地尺寸，避免为自定义上传额外生成一份 base64 数据
+  async getPasteImageSize(img) {
+    const localUrl = URL.createObjectURL(img)
+    try {
+      return await getImageSize(localUrl)
+    } finally {
+      URL.revokeObjectURL(localUrl)
+    }
+  }
+
   // 粘贴
   async paste() {
     const {
@@ -1347,28 +1469,47 @@ class Render {
         }
         // 存在图片，则添加到当前激活节点
         if (img && (!text || !onlyPasteTextWhenHasImgAndText)) {
+          const targetNodes = this.activeNodeList.slice()
+          if (targetNodes.length <= 0) return
+          const uploadTask = this.createNodeImageUploadTask(
+            targetNodes,
+            null,
+            false
+          )
           try {
             let imgData = null
+            const hasCustomImageHandler =
+              handleNodePasteImg && typeof handleNodePasteImg === 'function'
+            let uploadResultPromise = null
             // 自定义图片处理函数
-            if (
-              handleNodePasteImg &&
-              typeof handleNodePasteImg === 'function'
-            ) {
-              imgData = await handleNodePasteImg(img)
+            if (hasCustomImageHandler) {
+              // 先启动上传，再并行读取本地尺寸；将失败包装成结果以避免未处理拒绝
+              uploadResultPromise = Promise.resolve()
+                .then(() => handleNodePasteImg(img))
+                .then(
+                  data => ({ data }),
+                  error => ({ error })
+                )
+              const imageSize = await this.getPasteImageSize(img)
+              this.updateNodeImageUploadTask(uploadTask, imageSize)
+              const uploadResult = await uploadResultPromise
+              if (uploadResult.error) throw uploadResult.error
+              imgData = uploadResult.data
             } else {
               imgData = await loadImage(img)
+              this.updateNodeImageUploadTask(uploadTask, imgData.size)
             }
-            if (this.activeNodeList.length > 0) {
-              this.activeNodeList.forEach(node => {
-                this.mindMap.execCommand('SET_NODE_IMAGE', node, {
-                  url: imgData.url,
-                  title: '',
-                  width: imgData.size.width,
-                  height: imgData.size.height
-                })
+            const pendingNodes = this.consumeNodeImageUploadTask(uploadTask)
+            pendingNodes.forEach(node => {
+              this.mindMap.execCommand('SET_NODE_IMAGE', node, {
+                url: imgData.url,
+                title: '',
+                width: imgData.size.width,
+                height: imgData.size.height
               })
-            }
+            })
           } catch (error) {
+            this.cancelNodeImageUploadTask(uploadTask)
             errorHandler(ERROR_TYPES.LOAD_CLIPBOARD_IMAGE_ERROR, error)
           }
         }
@@ -1779,6 +1920,8 @@ class Render {
 
   //  设置节点图片
   setNodeImage(node, data) {
+    const uid = node && node.getData('uid')
+    if (uid) this.nodeImageUploadState.delete(uid)
     const {
       url,
       title,

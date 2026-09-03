@@ -9,7 +9,15 @@ import {
   camelCaseToHyphen,
   getNodeRichTextStyles
 } from '../../../utils'
-import { Image as SVGImage, SVG, A, G, Rect, Text } from '@svgdotjs/svg.js'
+import {
+  Image as SVGImage,
+  SVG,
+  A,
+  G,
+  Rect,
+  Text,
+  Circle
+} from '@svgdotjs/svg.js'
 import iconsSvg from '../../../svg/icons'
 import { noneRichTextNodeLineHeight } from '../../../constants/constant'
 
@@ -39,8 +47,73 @@ function getImageUrl() {
   return (this.mindMap.renderer.renderTree.data.imgMap || {})[img] || img
 }
 
+// 创建图片上传中的占位内容。上传状态只保存在渲染器中，不进入导图数据。
+function createUploadingImgNode(state) {
+  const width = Math.max(Number(state.width) || 120, 1)
+  const height = Math.max(Number(state.height) || 72, 1)
+  const centerX = width / 2
+  const showText = width >= 48 && height >= 48
+  const spinnerSize = Math.max(
+    1,
+    Math.min(22, width * 0.4, height * (showText ? 0.38 : 0.6))
+  )
+  const spinnerStrokeWidth = Math.max(0.75, Math.min(2, spinnerSize / 6))
+  const spinnerCenterY = showText ? height / 2 - 8 : height / 2
+  const spinnerLength = Math.PI * spinnerSize
+  const node = new G().attr({
+    'data-node-image-uploading': 'true',
+    'aria-label': '图片上传中'
+  })
+  const background = new Rect()
+    .size(width, height)
+    .radius(6)
+    .fill('#f7f8fa')
+  const spinnerTrack = new Circle()
+    .size(spinnerSize)
+    .center(centerX, spinnerCenterY)
+    .fill('none')
+    .stroke({ color: '#dcdfe6', width: spinnerStrokeWidth })
+  const spinner = new Circle()
+    .size(spinnerSize)
+    .center(centerX, spinnerCenterY)
+    .fill('none')
+    .stroke({
+      color: '#409eff',
+      width: spinnerStrokeWidth + 0.5,
+      dasharray: `${spinnerLength * 0.4} ${spinnerLength * 0.6}`,
+      linecap: 'round'
+    })
+  const animation = document.createElementNS('http://www.w3.org/2000/svg', 'animate')
+  animation.setAttribute('attributeName', 'stroke-dashoffset')
+  animation.setAttribute('from', '0')
+  animation.setAttribute('to', `${-spinnerLength}`)
+  animation.setAttribute('dur', '0.8s')
+  animation.setAttribute('repeatCount', 'indefinite')
+  spinner.node.appendChild(animation)
+  node.add(background)
+  node.add(spinnerTrack)
+  node.add(spinner)
+  if (showText) {
+    const text = new Text()
+      .text('上传中')
+      .font({ family: 'Arial, sans-serif', size: 11 })
+      .fill('#909399')
+    node.add(text)
+    text.center(centerX, spinnerCenterY + 23)
+  }
+  return {
+    node,
+    width,
+    height
+  }
+}
+
 //  创建图片节点
 function createImgNode() {
+  const uploadState = this.renderer.getNodeImageUploadState(this)
+  if (uploadState) {
+    return createUploadingImgNode(uploadState)
+  }
   let img = this.getImageUrl()
   if (!img) {
     return
