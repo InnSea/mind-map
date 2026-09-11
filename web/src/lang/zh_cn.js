@@ -240,6 +240,17 @@ export default {
     title: '标签',
     addTip: '请按回车键添加'
   },
+  quickTag: {
+    custom: '自定义标签',
+    add: '添加标签',
+    placeholder: '输入快捷标签',
+    confirmAdd: '添加',
+    delete: '删除快捷标签',
+    duplicate: '该快捷标签已存在',
+    limit: '最多添加 {max} 个自定义快捷标签',
+    loadFailed: '快捷标签加载失败，请稍后重试',
+    saveFailed: '快捷标签保存失败，请稍后重试'
+  },
   outline: {
     title: '大纲',
     nodeDefaultText: '分支节点',

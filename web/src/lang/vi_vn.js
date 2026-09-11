@@ -242,6 +242,17 @@ export default {
     title: 'Thẻ',
     addTip: 'Nhấn Enter để thêm'
   },
+  quickTag: {
+    custom: 'Thẻ tùy chỉnh',
+    add: 'Thêm thẻ',
+    placeholder: 'Nhập thẻ nhanh',
+    confirmAdd: 'Thêm',
+    delete: 'Xóa thẻ nhanh',
+    duplicate: 'Thẻ nhanh này đã tồn tại',
+    limit: 'Bạn chỉ có thể thêm tối đa {max} thẻ nhanh tùy chỉnh',
+    loadFailed: 'Không thể tải thẻ nhanh. Vui lòng thử lại sau',
+    saveFailed: 'Không thể lưu thẻ nhanh. Vui lòng thử lại sau'
+  },
   outline: {
     title: 'Dàn bài',
     nodeDefaultText: 'Nhánh nút',

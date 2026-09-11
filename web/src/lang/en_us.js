@@ -246,6 +246,17 @@ export default {
     title: 'Tag',
     addTip: 'Press Enter to add'
   },
+  quickTag: {
+    custom: 'Custom tags',
+    add: 'Add tag',
+    placeholder: 'Enter a quick tag',
+    confirmAdd: 'Add',
+    delete: 'Delete quick tag',
+    duplicate: 'This quick tag already exists',
+    limit: 'You can add up to {max} custom quick tags',
+    loadFailed: 'Failed to load quick tags. Please try again later',
+    saveFailed: 'Failed to save the quick tag. Please try again later'
+  },
   outline: {
     title: 'Outline',
     nodeDefaultText: 'Branch node',

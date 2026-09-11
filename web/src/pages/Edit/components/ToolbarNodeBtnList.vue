@@ -169,6 +169,74 @@
               </div>
             </div>
           </div>
+          <div v-if="customQuickTags.length" class="quickTagGroup">
+            <div class="quickTagGroupTitle">{{ $t('quickTag.custom') }}</div>
+            <div class="quickTagGroupItems columns-2">
+              <div
+                v-for="tag in customQuickTags"
+                :key="tag"
+                class="quickTagItem customQuickTagItem"
+                :class="{ active: isTagActive(tag) }"
+                :style="{ backgroundColor: getTagColor(tag) }"
+                @click="toggleQuickTag(tag)"
+              >
+                <span class="quickTagText" :title="tag">{{ tag }}</span>
+                <span
+                  v-if="isTagActive(tag)"
+                  class="iconfont iconchenggou checkIcon"
+                ></span>
+                <button
+                  type="button"
+                  class="quickTagDeleteButton"
+                  :disabled="quickTagLoading || quickTagSaving"
+                  :title="$t('quickTag.delete')"
+                  @click.stop="removeCustomQuickTag(tag)"
+                >
+                  <span class="iconfont iconshanchu"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="quickTagAddArea">
+            <button
+              v-if="!quickTagAdding"
+              type="button"
+              class="quickTagAddButton"
+              :disabled="quickTagLoading || quickTagSaving"
+              @click.stop="startAddQuickTag"
+            >
+              <span class="el-icon-plus"></span>
+              <span>{{ $t('quickTag.add') }}</span>
+            </button>
+            <div v-else class="quickTagAddForm">
+              <el-input
+                ref="quickTagInput"
+                v-model="newQuickTag"
+                size="mini"
+                :maxlength="maxQuickTagLength"
+                :placeholder="$t('quickTag.placeholder')"
+                @keyup.native.enter.stop="addCustomQuickTag"
+                @keyup.native.esc.stop="cancelAddQuickTag"
+                @keydown.native.stop
+              ></el-input>
+              <el-button
+                size="mini"
+                type="primary"
+                :loading="quickTagSaving"
+                :disabled="!newQuickTag.trim()"
+                @click.stop="addCustomQuickTag"
+              >
+                {{ $t('quickTag.confirmAdd') }}
+              </el-button>
+              <el-button
+                size="mini"
+                :disabled="quickTagSaving"
+                @click.stop="cancelAddQuickTag"
+              >
+                {{ $t('dialog.cancel') }}
+              </el-button>
+            </div>
+          </div>
         </div>
         <div
           slot="reference"
@@ -264,6 +332,7 @@
 import { mapState, mapMutations } from 'vuex'
 import { generateColorByContent } from 'simple-mind-map/src/utils/index'
 import { nodeTagColorMap } from '@/config/nodeTag'
+import { platformRequest } from '@/api/platformClient'
 import NodeAnnotationBtn from './NodeAnnotationBtn.vue'
 
 // 快捷标签预设
@@ -285,6 +354,35 @@ const quickTagGroups = [
   }
 ]
 const maxTag = 5
+const maxCustomQuickTag = 20
+const maxQuickTagLength = 20
+const customQuickTagPreferenceKey = 'customQuickTags'
+const customQuickTagsChangeEvent = 'custom_quick_tags_change'
+const presetQuickTags = quickTagGroups.reduce((result, group) => {
+  return result.concat(group.tags)
+}, [])
+let customQuickTagsCache = null
+let customQuickTagsLoadPromise = null
+
+const requestCustomQuickTags = () => {
+  if (customQuickTagsCache !== null) {
+    return Promise.resolve(customQuickTagsCache)
+  }
+  if (!customQuickTagsLoadPromise) {
+    customQuickTagsLoadPromise = platformRequest('/api/mindmap/preference')
+      .then(response => {
+        customQuickTagsCache =
+          response && response.data
+            ? response.data[customQuickTagPreferenceKey]
+            : []
+        return customQuickTagsCache
+      })
+      .finally(() => {
+        customQuickTagsLoadPromise = null
+      })
+  }
+  return customQuickTagsLoadPromise
+}
 
 export default {
   components: { NodeAnnotationBtn },
@@ -311,6 +409,13 @@ export default {
       isInPainter: false,
       quickTagGroups,
       quickTagPopoverShow: false,
+      customQuickTags: [],
+      quickTagAdding: false,
+      quickTagLoading: false,
+      quickTagLoaded: false,
+      quickTagSaving: false,
+      newQuickTag: '',
+      maxQuickTagLength,
       // 当前激活节点（取第一个）的标签内容，用于高亮已选快捷标签
       activeNodeTags: []
     }
@@ -341,14 +446,24 @@ export default {
       return index !== -1 && index < this.list.length - 1
     }
   },
+  watch: {
+    quickTagPopoverShow(show) {
+      if (!show) {
+        this.cancelAddQuickTag()
+      }
+    }
+  },
   created() {
+    this.$bus.$on(customQuickTagsChangeEvent, this.onCustomQuickTagsChange)
     this.$bus.$on('mode_change', this.onModeChange)
     this.$bus.$on('node_active', this.onNodeActive)
     this.$bus.$on('back_forward', this.onBackForward)
     this.$bus.$on('painter_start', this.onPainterStart)
     this.$bus.$on('painter_end', this.onPainterEnd)
+    this.loadCustomQuickTags()
   },
   beforeDestroy() {
+    this.$bus.$off(customQuickTagsChangeEvent, this.onCustomQuickTagsChange)
     this.$bus.$off('mode_change', this.onModeChange)
     this.$bus.$off('node_active', this.onNodeActive)
     this.$bus.$off('back_forward', this.onBackForward)
@@ -362,6 +477,135 @@ export default {
 
     getTagColor(tag) {
       return nodeTagColorMap[tag] || generateColorByContent(tag)
+    },
+
+    normalizeQuickTag(tag) {
+      return typeof tag === 'string' ? tag.trim() : ''
+    },
+
+    normalizeCustomQuickTags(tags) {
+      if (!Array.isArray(tags)) return []
+      const uniqueTags = []
+      tags.forEach(tag => {
+        const text = this.normalizeQuickTag(tag)
+        if (
+          text &&
+          text.length <= maxQuickTagLength &&
+          !uniqueTags.includes(text) &&
+          !presetQuickTags.includes(text) &&
+          uniqueTags.length < maxCustomQuickTag
+        ) {
+          uniqueTags.push(text)
+        }
+      })
+      return uniqueTags
+    },
+
+    async loadCustomQuickTags() {
+      if (this.quickTagLoading) return false
+      this.quickTagLoading = true
+      try {
+        const tags = await requestCustomQuickTags()
+        this.onCustomQuickTagsChange(tags)
+        return true
+      } catch (error) {
+        console.warn('加载自定义快捷标签失败:', error)
+        return false
+      } finally {
+        this.quickTagLoading = false
+      }
+    },
+
+    onCustomQuickTagsChange(tags) {
+      this.customQuickTags = this.normalizeCustomQuickTags(tags)
+      this.quickTagLoaded = true
+    },
+
+    async saveCustomQuickTags(tags) {
+      if (this.quickTagSaving) return false
+      this.quickTagSaving = true
+      try {
+        const response = await platformRequest('/api/mindmap/preference', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            settings: {
+              [customQuickTagPreferenceKey]: tags
+            }
+          })
+        })
+        const savedTags =
+          response && response.data
+            ? response.data[customQuickTagPreferenceKey]
+            : tags
+        customQuickTagsCache = this.normalizeCustomQuickTags(savedTags)
+        this.$bus.$emit(customQuickTagsChangeEvent, customQuickTagsCache)
+        return true
+      } catch (error) {
+        console.warn('保存自定义快捷标签失败:', error)
+        this.$message.error(this.$t('quickTag.saveFailed'))
+        return false
+      } finally {
+        this.quickTagSaving = false
+      }
+    },
+
+    async startAddQuickTag() {
+      if (!this.quickTagLoaded) {
+        const loaded = await this.loadCustomQuickTags()
+        if (!loaded) {
+          this.$message.error(this.$t('quickTag.loadFailed'))
+          return
+        }
+      }
+      if (this.customQuickTags.length >= maxCustomQuickTag) {
+        this.$message.warning(
+          this.$t('quickTag.limit', { max: maxCustomQuickTag })
+        )
+        return
+      }
+      this.quickTagAdding = true
+      this.$nextTick(() => {
+        if (this.$refs.quickTagInput) {
+          this.$refs.quickTagInput.focus()
+        }
+      })
+    },
+
+    cancelAddQuickTag() {
+      this.quickTagAdding = false
+      this.newQuickTag = ''
+    },
+
+    async addCustomQuickTag() {
+      const tag = this.normalizeQuickTag(this.newQuickTag)
+      if (!tag || this.quickTagSaving) return
+      if (this.customQuickTags.length >= maxCustomQuickTag) {
+        this.$message.warning(
+          this.$t('quickTag.limit', { max: maxCustomQuickTag })
+        )
+        return
+      }
+      if ([...presetQuickTags, ...this.customQuickTags].includes(tag)) {
+        this.$message.warning(this.$t('quickTag.duplicate'))
+        return
+      }
+      const saved = await this.saveCustomQuickTags([
+        ...this.customQuickTags,
+        tag
+      ])
+      if (saved) {
+        this.cancelAddQuickTag()
+      }
+    },
+
+    async removeCustomQuickTag(tag) {
+      if (this.quickTagSaving) return
+      await this.saveCustomQuickTags(
+        this.customQuickTags.filter(item => item !== tag)
+      )
     },
 
     // 监听模式切换
@@ -572,6 +816,8 @@ export default {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    max-height: min(520px, calc(100vh - 40px));
+    overflow-y: auto;
   }
 
   .quickTagGroupTitle {
@@ -624,8 +870,11 @@ export default {
     }
 
     .quickTagText {
+      min-width: 0;
+      overflow: hidden;
       font-size: 12px;
       text-align: left;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
@@ -634,6 +883,95 @@ export default {
       right: 6px;
       font-size: 11px;
     }
+  }
+
+  .customQuickTagItem {
+    padding-right: 30px;
+
+    &.active {
+      padding-right: 46px;
+
+      .checkIcon {
+        right: 29px;
+      }
+    }
+  }
+
+  .quickTagDeleteButton,
+  .quickTagAddButton {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .quickTagDeleteButton {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 3px;
+    color: inherit;
+    opacity: 0.75;
+
+    &:hover:not(:disabled) {
+      background: rgba(0, 0, 0, 0.2);
+      opacity: 1;
+    }
+
+    &:disabled {
+      cursor: wait;
+    }
+  }
+
+  .quickTagAddArea {
+    padding-top: 8px;
+    border-top: 1px solid #ebeef5;
+  }
+
+  .quickTagAddButton {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 6px;
+    color: #606266;
+    font-size: 12px;
+
+    &:hover:not(:disabled) {
+      color: #409eff;
+    }
+
+    &:disabled {
+      color: #c0c4cc;
+      cursor: wait;
+    }
+  }
+
+  .quickTagAddForm {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px;
+
+    .el-button {
+      margin-left: 0;
+    }
+  }
+}
+
+body.isDark .quickTagPopover {
+  .quickTagGroupTitle,
+  .quickTagAddButton {
+    color: hsla(0, 0%, 100%, 0.7);
+  }
+
+  .quickTagAddArea {
+    border-top-color: hsla(0, 0%, 100%, 0.12);
   }
 }
 </style>

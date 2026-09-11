@@ -34,6 +34,11 @@ export default {
       isDark: state => state.localConfig.isDark
     })
   },
+  watch: {
+    mindMap(value) {
+      if (value) this.onDataChange(value.getData())
+    }
+  },
   created() {
     this.$bus.$on('data_change', this.onDataChange)
     if (this.mindMap) {
@@ -58,7 +63,9 @@ export default {
     walk(data) {
       if (!data) return
       this.num++
-      this.textStr += String(data.data.text) || ''
+      this.textStr += data.data && data.data.text != null
+        ? String(data.data.text)
+        : ''
       if (data.children && data.children.length > 0) {
         data.children.forEach(item => {
           this.walk(item)

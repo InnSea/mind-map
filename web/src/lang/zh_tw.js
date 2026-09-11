@@ -238,6 +238,17 @@ export default {
     title: '標籤',
     addTip: '請按 Enter 鍵新增'
   },
+  quickTag: {
+    custom: '自訂標籤',
+    add: '新增標籤',
+    placeholder: '輸入快捷標籤',
+    confirmAdd: '新增',
+    delete: '刪除快捷標籤',
+    duplicate: '此快捷標籤已存在',
+    limit: '最多新增 {max} 個自訂快捷標籤',
+    loadFailed: '快捷標籤載入失敗，請稍後再試',
+    saveFailed: '快捷標籤儲存失敗，請稍後再試'
+  },
   outline: {
     title: '大綱',
     nodeDefaultText: '分支節點',
